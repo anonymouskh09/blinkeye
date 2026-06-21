@@ -1,0 +1,62 @@
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import FastAPI
+from fastapi.exceptions import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.core.exceptions import AppException, app_exception_handler, generic_exception_handler, http_exception_handler
+from app.core.response import success_response
+from app.routers import auth, candidates, clients, dashboard, folders, gmail, interviews, jobs, notes, outreach, pipeline, recruitment_center, reports, users
+from app.services.outreach_scheduler_service import run_outreach_scheduler
+
+scheduler = BackgroundScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler.add_job(run_outreach_scheduler, "interval", minutes=1, id="outreach_sender", replace_existing=True)
+    scheduler.start()
+    yield
+    scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Recruitment Agency Management System", version="1.0.0", lifespan=lifespan)
+
+if settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:
+    print(f"Gmail OAuth configured (redirect: {settings.GOOGLE_REDIRECT_URI})")
+else:
+    print("WARNING: Gmail OAuth not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in backend/.env")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
+
+app.include_router(auth.router)
+app.include_router(clients.router)
+app.include_router(jobs.router)
+app.include_router(users.router)
+app.include_router(candidates.router)
+app.include_router(folders.router)
+app.include_router(pipeline.router)
+app.include_router(interviews.router)
+app.include_router(notes.router)
+app.include_router(dashboard.router)
+app.include_router(reports.router)
+app.include_router(recruitment_center.router)
+app.include_router(gmail.router)
+app.include_router(outreach.router)
+
+
+@app.get("/health")
+def health_check():
+    return success_response(data={"status": "healthy"}, message="API is running")

@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #111827;
+  --primary: #4f46e5;
+  --secondary: #7c3aed;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .content-panel {
+    @apply bg-white rounded-2xl border border-gray-200/80 shadow-card min-h-[calc(100vh-7rem)];
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between px-6 py-5 border-b border-gray-100;
+  }
+
+  .panel-title {
+    @apply text-xl font-semibold text-gray-900 tracking-tight;
+  }
+
+  .sub-tabs {
+    @apply flex items-center gap-0 border-b border-gray-100 px-4 overflow-x-auto bg-white;
+  }
+
+  .sub-tab {
+    @apply flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap;
+  }
+
+  .sub-tab-active {
+    @apply border-primary text-primary;
+  }
+
+  .sub-tab-inactive {
+    @apply border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200;
+  }
+
+  .toolbar {
+    @apply flex items-center justify-between px-6 py-4 border-b border-gray-50 bg-gray-50/50;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl
+      hover:bg-primary-700 shadow-sm hover:shadow transition-all duration-200;
+  }
+
+  .btn-outline-primary {
+    @apply inline-flex items-center gap-2 px-3.5 py-2 border border-primary/30 text-primary text-sm font-medium
+      rounded-xl hover:bg-primary-50 transition-all duration-200;
+  }
+
+  .btn-icon {
+    @apply p-2.5 border border-gray-200 rounded-xl text-gray-500 hover:bg-white hover:border-gray-300
+      hover:text-gray-700 transition-all duration-200 bg-white shadow-sm;
+  }
+
+  .view-toggle {
+    @apply flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm;
+  }
+
+  .view-toggle-btn {
+    @apply px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-200;
+  }
+
+  .view-toggle-active {
+    @apply bg-primary text-white shadow-sm;
+  }
+
+  .view-toggle-inactive {
+    @apply bg-white text-gray-600 hover:bg-gray-50;
+  }
+
+  .dropdown-menu {
+    @apply absolute right-0 top-full mt-1.5 z-20 w-48 bg-white border border-gray-200/80 rounded-xl shadow-card-hover py-1.5 animate-slide-down;
+  }
+
+  .dropdown-item {
+    @apply w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors;
+  }
+
+  .count-badge {
+    @apply bg-emerald-500 text-white text-xs font-bold rounded-full min-w-[24px] h-6 flex items-center justify-center px-2 shadow-sm;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-modal-backdrop {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  .animate-modal-panel {
+    animation: modalSlideIn 0.25s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.2s ease-out forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: scale(0.98) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
