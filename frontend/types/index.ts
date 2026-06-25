@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "recruiter";
+export type UserRole = "admin" | "manager" | "recruiter";
 export type UserStatus = "active" | "inactive";
 export type ClientStatus = "active" | "inactive";
 export type ClientStage = "prospect" | "lead" | "active" | "customer" | "inactive";

@@ -28,5 +28,6 @@ export async function getMe() {
 }
 
 export function getRedirectForRole(role: UserRole): string {
-  return role === "admin" ? "/dashboard" : "/my-jobs";
+  if (role === "admin") return "/dashboard";
+  return "/my-jobs";
 }

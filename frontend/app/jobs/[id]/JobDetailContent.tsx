@@ -188,7 +188,7 @@ export default function JobDetailPageContent() {
                   refreshAll();
                 }}>
                 <option value="">+ Add team member</option>
-                {users.filter((u) => u.role === "recruiter" || u.role === "admin").map((u) => (
+                {users.filter((u) => ["recruiter", "manager", "admin"].includes(u.role)).map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
                 ))}
               </select>

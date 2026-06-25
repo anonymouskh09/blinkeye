@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || loading || pathname === "/login") return;
 
-    if (user.role === "recruiter" && adminOnlyPaths.some((p) => pathname.startsWith(p))) {
+    if ((user.role === "recruiter" || user.role === "manager") && adminOnlyPaths.some((p) => pathname.startsWith(p))) {
       router.replace("/my-jobs");
     }
     if (user.role === "admin" && pathname === "/my-jobs") {
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         refreshUser,
         isAdmin: user?.role === "admin",
-        isRecruiter: user?.role === "recruiter",
+        isRecruiter: user?.role === "recruiter" || user?.role === "manager",
       }}
     >
       {children}
