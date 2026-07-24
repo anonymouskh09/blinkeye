@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RecruitPro Candidate Importer</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">RecruitPro</span>
+      </div>
+      <div class="header-user" id="header-user" hidden></div>
+    </header>
+    <main id="root" class="app-root" aria-live="polite"></main>
+    <footer class="app-footer">
+      <span id="env-badge" class="env-badge"></span>
+    </footer>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

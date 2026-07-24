@@ -21,7 +21,8 @@ class ClientStage(str, enum.Enum):
     PROSPECT = "prospect"
     LEAD = "lead"
     ACTIVE = "active"
-    CUSTOMER = "customer"
+    ON_HOLD = "on_hold"
+    CUSTOMER = "customer"  # legacy — prefer on_hold
     INACTIVE = "inactive"
 
 
@@ -105,3 +106,4 @@ class ActivityAction(str, enum.Enum):
     INTERVIEW_UPDATED = "interview_updated"
     INTERVIEW_CANCELLED = "interview_cancelled"
     ASSIGNED = "assigned"
+    CANDIDATE_IMPORTED = "candidate_imported"

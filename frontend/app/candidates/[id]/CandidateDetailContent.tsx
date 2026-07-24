@@ -97,15 +97,28 @@ export default function CandidateDetailContent() {
 
   useEffect(() => {
     fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  useEffect(() => {
+    if (tab !== "jobs" && !assignOpen) return;
+    if (jobs.length) return;
     api.get<ApiResponse<PaginatedData<Job>>>("/jobs", { params: { page_size: 100 } })
       .then((r) => setJobs(r.data.data.items));
+  }, [tab, assignOpen, jobs.length]);
+
+  useEffect(() => {
+    if (!assignOpen || users.length) return;
     api.get<ApiResponse<PaginatedData<User>>>("/users", { params: { page_size: 100, status: "active" } })
       .then((r) => setUsers(r.data.data.items))
       .catch(() => setUsers([]));
+  }, [assignOpen, users.length]);
+
+  useEffect(() => {
+    if (tab !== "inbox" && tab !== "summary") return;
     api.get<ApiResponse<{ steps: { id: number }[] }>>(`/outreach/candidates/${id}/inbox`)
       .then((r) => setInboxSteps(r.data.data.steps?.length || 0))
       .catch(() => setInboxSteps(0));
-  }, [fetchAll]);
+  }, [tab, id]);
 
   const switchTab = (t: Tab) => {
     setTab(t);

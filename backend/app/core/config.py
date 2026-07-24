@@ -35,9 +35,20 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     OUTREACH_DAILY_EMAIL_LIMIT: int = 30
 
+    # Chrome extension auth flow
+    EXTENSION_ACCESS_EXPIRE_MINUTES: int = 60
+    EXTENSION_REFRESH_EXPIRE_DAYS: int = 30
+    EXTENSION_CODE_EXPIRE_SECONDS: int = 300
+    # Comma-separated extra CORS origins for the extension (e.g. chrome-extension://<id>).
+    EXTENSION_CORS_ORIGINS: str = ""
+    # Dev-only: allow the extension to connect with a pasted JWT access token.
+    EXTENSION_ALLOW_DEV_TOKEN: bool = False
+
     @property
     def cors_origins_list(self) -> list[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        origins += [o.strip() for o in self.EXTENSION_CORS_ORIGINS.split(",") if o.strip()]
+        return origins
 
     @property
     def is_production(self) -> bool:

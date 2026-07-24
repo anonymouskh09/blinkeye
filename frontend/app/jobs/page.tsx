@@ -68,8 +68,8 @@ export default function JobsPage() {
   }, {} as Record<JobStatus, Job[]>);
 
   return (
-    <PageWrapper>
-      <div className="content-panel">
+    <PageWrapper flush>
+      <div className="content-panel content-panel-flush">
         <div className="panel-header">
           <div className="flex items-center gap-2.5">
             <h1 className="panel-title">Jobs</h1>

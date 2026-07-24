@@ -84,8 +84,8 @@ function CandidatesPageContent() {
   const totalCount = data?.total ?? 0;
 
   return (
-    <PageWrapper>
-      <div className="content-panel">
+    <PageWrapper flush>
+      <div className="content-panel content-panel-flush">
         <div className="panel-header">
           <div className="flex items-center gap-2.5">
             <h1 className="panel-title">Candidates</h1>

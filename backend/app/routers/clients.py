@@ -242,15 +242,19 @@ def create_client(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    data = payload.model_dump()
+    data = payload.model_dump(exclude={"team_user_ids"})
+    team_user_ids = list(dict.fromkeys(payload.team_user_ids or []))
     if not data.get("owner_id"):
-        data["owner_id"] = admin.id
+        data["owner_id"] = team_user_ids[0] if team_user_ids else admin.id
 
     client = Client(**data)
     db.add(client)
     db.flush()
 
-    db.add(ClientTeamMember(client_id=client.id, user_id=data["owner_id"]))
+    assigned_ids = set(team_user_ids)
+    assigned_ids.add(data["owner_id"])
+    for user_id in assigned_ids:
+        db.add(ClientTeamMember(client_id=client.id, user_id=user_id))
     if payload.contact_person:
         db.add(
             ClientContact(
@@ -319,10 +323,10 @@ def delete_client(
     client.status = ClientStatus.INACTIVE
     log_activity(
         db, EntityType.CLIENT, client.id, ActivityAction.DELETED,
-        f"Client '{client.company_name}' was deactivated", admin.id,
+        f"Client '{client.company_name}' was archived", admin.id,
     )
     db.commit()
-    return success_response(message="Client deactivated")
+    return success_response(message="Client archived")
 
 
 @router.post("/{client_id}/contacts")

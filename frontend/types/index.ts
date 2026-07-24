@@ -1,7 +1,7 @@
 export type UserRole = "admin" | "manager" | "recruiter";
 export type UserStatus = "active" | "inactive";
 export type ClientStatus = "active" | "inactive";
-export type ClientStage = "prospect" | "lead" | "active" | "customer" | "inactive";
+export type ClientStage = "prospect" | "lead" | "active" | "on_hold" | "customer" | "inactive";
 export type JobType = "full-time" | "part-time" | "contract";
 export type JobStatus = "active" | "pending" | "on-hold" | "closed" | "filled";
 export type PipelineStage =
@@ -44,6 +44,49 @@ export interface User {
   updated_at: string;
   assigned_jobs_count?: number;
   assigned_jobs?: { id: number; title: string; status: string; created_at: string }[];
+}
+
+export interface TeamMemberStats {
+  candidates_created: number;
+  candidates_owned: number;
+  resumes_added: number;
+  added_to_job: number;
+  shortlisted: number;
+  interviewed: number;
+  interviews_scheduled: number;
+  offers: number;
+  hired: number;
+  jobs: {
+    total: number;
+    active: number;
+    pending: number;
+    on_hold: number;
+    closed: number;
+    filled: number;
+  };
+  clients_count: number;
+}
+
+export interface TeamPipelineCard {
+  assignment_id: number;
+  candidate_id: number;
+  name: string;
+  current_job_title?: string;
+  current_company?: string;
+  job_id?: number;
+  job_title?: string;
+  status: string;
+  created_at?: string;
+}
+
+export interface TeamMemberOverview {
+  user: User;
+  stats: TeamMemberStats;
+  pipeline: Record<string, TeamPipelineCard[]>;
+  clients: { id: number; company_name: string; jobs_count: number; active_jobs: number }[];
+  jobs: { id: number; title: string; status: string; client_name?: string; candidate_count: number; created_at: string }[];
+  history: { id: number; description: string; action: string; entity_type: string; created_at: string }[];
+  filter?: { date_from?: string | null; date_to?: string | null };
 }
 
 export interface Client {
@@ -251,6 +294,11 @@ export interface Candidate {
   linkedin_url?: string;
   cv_file_path?: string;
   notes?: string;
+  headline?: string | null;
+  summary?: string | null;
+  profile_image_url?: string | null;
+  source?: string | null;
+  imported_via?: string | null;
   created_by: number;
   created_by_name?: string;
   jobs_applied_count: number;

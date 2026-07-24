@@ -35,6 +35,7 @@ class ClientCreate(BaseModel):
     status: ClientStatus = ClientStatus.ACTIVE
     stage: ClientStage = ClientStage.PROSPECT
     owner_id: int | None = None
+    team_user_ids: list[int] = Field(default_factory=list)
 
 
 class ClientUpdate(BaseModel):

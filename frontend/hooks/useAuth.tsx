@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getMe, logout as logoutApi } from "@/lib/auth";
 import type { User, UserRole } from "@/types";
@@ -22,6 +22,7 @@ const recruiterOnlyPaths = ["/my-jobs"];
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionLoadedRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -36,10 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (pathname === "/login") {
+      sessionLoadedRef.current = false;
       setLoading(false);
       return;
     }
-    refreshUser().finally(() => setLoading(false));
+    if (sessionLoadedRef.current) {
+      setLoading(false);
+      return;
+    }
+    refreshUser()
+      .finally(() => {
+        sessionLoadedRef.current = true;
+        setLoading(false);
+      });
   }, [pathname, refreshUser]);
 
   useEffect(() => {
@@ -56,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await logoutApi();
     setUser(null);
+    sessionLoadedRef.current = false;
     router.push("/login");
   };
 

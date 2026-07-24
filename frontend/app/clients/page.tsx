@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Plus, RefreshCw, Filter, MoreVertical, Globe, Eye, ChevronDown,
-  ArrowUpDown, LayoutGrid, List, Phone, Trash2,
+  Plus, RefreshCw, Filter, MoreVertical,
+  ArrowUpDown, LayoutGrid, List, Pencil, Briefcase, ArrowLeftRight, Archive,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "@/components/layout/PageWrapper";
@@ -17,25 +17,18 @@ import Pagination from "@/components/ui/Table";
 import EmptyState from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import ClientAvatar, { UserAvatar } from "@/components/clients/ClientAvatar";
-import ClientStageBadge from "@/components/clients/ClientStageBadge";
+import ClientStageBadge, { CLIENT_STATUS_OPTIONS } from "@/components/clients/ClientStageBadge";
+import ClientsBoard from "@/components/clients/ClientsBoard";
 import { useRequireRole } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { formatDateTimeBullet, cn } from "@/lib/utils";
-import type { ApiResponse, Client, ClientStage, PaginatedData } from "@/types";
+import type { ApiResponse, Client, ClientStage, PaginatedData, User } from "@/types";
 
 type ViewMode = "list" | "board";
 
-const STAGES: ClientStage[] = ["prospect", "lead", "active", "customer", "inactive"];
-
 const emptyForm = {
   company_name: "",
-  contact_person: "",
-  email: "",
-  phone: "",
-  industry: "",
-  location: "",
-  website: "",
-  stage: "prospect" as ClientStage,
+  team_user_id: "",
 };
 
 export default function ClientsPage() {
@@ -51,9 +44,38 @@ export default function ClientsPage() {
   const [stageFilter, setStageFilter] = useState("");
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [teamUsers, setTeamUsers] = useState<User[]>([]);
+  const [loadingTeam, setLoadingTeam] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [menuClientId, setMenuClientId] = useState<number | null>(null);
+  const [menuClient, setMenuClient] = useState<Client | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [statusClient, setStatusClient] = useState<Client | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<ClientStage>("prospect");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const closeMenu = () => {
+    setMenuClient(null);
+    setMenuPos(null);
+  };
+
+  const openMenu = (client: Client, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (menuClient?.id === client.id) {
+      closeMenu();
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = 200;
+    let top = rect.bottom + 6;
+    let left = rect.right - menuWidth;
+    if (top + menuHeight > window.innerHeight - 8) top = Math.max(8, rect.top - menuHeight - 6);
+    if (left < 8) left = 8;
+    if (left + menuWidth > window.innerWidth - 8) left = window.innerWidth - menuWidth - 8;
+    setMenuPos({ top, left });
+    setMenuClient(client);
+  };
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -62,7 +84,7 @@ export default function ClientsPage() {
         const res = await api.get<ApiResponse<{ stages: Record<string, Client[]> }>>("/clients/board");
         setBoard(res.data.data.stages);
       } else {
-        const params: Record<string, string | number> = { page, page_size: 20 };
+        const params: Record<string, string | number> = { page, page_size: 20, status: "active" };
         if (search) params.search = search;
         if (stageFilter) params.stage = stageFilter;
         const res = await api.get<ApiResponse<PaginatedData<Client>>>("/clients", { params });
@@ -78,19 +100,47 @@ export default function ClientsPage() {
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   useEffect(() => {
+    if (!createOpen) return;
+    setLoadingTeam(true);
+    api.get<ApiResponse<PaginatedData<User>>>("/users", { params: { page_size: 100, status: "active" } })
+      .then((res) => setTeamUsers(res.data.data.items))
+      .catch(() => toast.error("Failed to load team members"))
+      .finally(() => setLoadingTeam(false));
+  }, [createOpen]);
+
+  useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuClientId(null);
+      const target = e.target as HTMLElement;
+      if (target.closest('[aria-label="Actions"]')) return;
+      if (menuRef.current && !menuRef.current.contains(target)) closeMenu();
     };
+    const onScroll = () => closeMenu();
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
+
+  const openChangeStatus = (client: Client) => {
+    closeMenu();
+    const stage = client.stage === "customer" ? "on_hold" : client.stage;
+    setSelectedStatus(CLIENT_STATUS_OPTIONS.some((o) => o.value === stage) ? stage : "prospect");
+    setStatusClient(client);
+  };
 
   const handleCreate = async () => {
     if (!form.company_name.trim()) { toast.error("Client name is required"); return; }
-    if (!form.phone.trim()) { toast.error("Phone number is required"); return; }
+    if (!form.team_user_id) { toast.error("Select a team member"); return; }
     setSaving(true);
     try {
-      const res = await api.post("/clients", form);
+      const res = await api.post("/clients", {
+        company_name: form.company_name.trim(),
+        team_user_ids: [Number(form.team_user_id)],
+      });
       toast.success("Client created");
       setCreateOpen(false);
       setForm(emptyForm);
@@ -102,36 +152,38 @@ export default function ClientsPage() {
     }
   };
 
-  const handleDeactivate = async (id: number) => {
-    if (!confirm("Deactivate this client?")) return;
+  const handleStatusSave = async () => {
+    if (!statusClient) return;
+    setUpdatingStatus(true);
     try {
-      await api.delete(`/clients/${id}`);
-      toast.success("Client deactivated");
-      setMenuClientId(null);
+      await api.put(`/clients/${statusClient.id}`, { stage: selectedStatus });
+      toast.success("Status updated");
+      setStatusClient(null);
       fetchClients();
     } catch {
-      toast.error("Failed to deactivate client");
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
-  const handleStageChange = async (clientId: number, stage: ClientStage) => {
+  const handleArchive = async (id: number) => {
+    if (!confirm("Archive this client? You can find it later under Settings → Archive.")) return;
     try {
-      await api.put(`/clients/${clientId}`, { stage });
-      toast.success("Stage updated");
+      await api.delete(`/clients/${id}`);
+      toast.success("Client archived");
+      closeMenu();
       fetchClients();
     } catch {
-      toast.error("Failed to update stage");
+      toast.error("Failed to archive client");
     }
   };
 
   return (
-    <PageWrapper>
-      <div className="content-panel">
+    <PageWrapper flush>
+      <div className="content-panel content-panel-flush">
         <div className="panel-header">
-          <div className="flex items-center gap-2.5">
-            <h1 className="panel-title">Clients</h1>
-            <ChevronDown className="h-4 w-4 text-gray-400" />
-          </div>
+          <h1 className="panel-title">Clients</h1>
           <div className="flex items-center gap-2">
             <div className="view-toggle">
               <button
@@ -150,59 +202,24 @@ export default function ClientsPage() {
             <button onClick={fetchClients} className="btn-icon">
               <RefreshCw className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+
+        <div className="toolbar">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCreateOpen(true)} className="btn-primary">
+              <Plus className="h-4 w-4" /> Create Client
+            </button>
             <button onClick={() => setFilterOpen(true)} className="btn-outline-primary">
               <Filter className="h-4 w-4" /> Filters
             </button>
           </div>
         </div>
 
-        <div className="toolbar">
-          <button onClick={() => setCreateOpen(true)} className="btn-primary">
-            <Plus className="h-4 w-4" /> Create Client
-          </button>
-        </div>
-
         {loading ? (
-          <div className="px-6 pb-6"><TableSkeleton rows={6} cols={9} /></div>
+          <div className="px-6 pb-6"><TableSkeleton rows={6} cols={8} /></div>
         ) : view === "board" ? (
-          <div className="px-6 pb-6 flex gap-4 overflow-x-auto">
-            {STAGES.map((stage) => (
-              <div key={stage} className="flex-shrink-0 w-72 bg-gray-50/80 rounded-2xl p-3 border border-gray-200/60">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">{stage}</h3>
-                  <span className="text-xs bg-white text-gray-600 px-2.5 py-0.5 rounded-lg font-semibold shadow-sm border border-gray-100">
-                    {(board[stage] || []).length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {(board[stage] || []).map((c) => (
-                    <div key={c.id} className="bg-white border border-gray-200/80 rounded-xl p-3.5 hover:shadow-card-hover hover:border-primary/20 transition-all">
-                      <Link href={`/clients/${c.id}`} className="block">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ClientAvatar name={c.company_name} size="sm" />
-                          <span className="font-medium text-sm text-primary">{c.company_name}</span>
-                        </div>
-                        {c.phone && (
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-                            <Phone className="h-3 w-3" /> {c.phone}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-400">{c.job_count} job(s)</p>
-                      </Link>
-                      <select
-                        value={c.stage}
-                        onChange={(e) => handleStageChange(c.id, e.target.value as ClientStage)}
-                        className="mt-2 w-full text-xs border border-gray-200 rounded px-2 py-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {STAGES.map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <ClientsBoard stages={board} onUpdate={fetchClients} />
         ) : !data?.items?.length ? (
           <EmptyState title="No clients found" actionLabel="Create Client" onAction={() => setCreateOpen(true)} />
         ) : (
@@ -215,14 +232,13 @@ export default function ClientsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       <span className="inline-flex items-center gap-1">Client Name <ArrowUpDown className="h-3 w-3" /></span>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phone</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Job Count</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Industry</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Job Count</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Stage</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Owner</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Team</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Created</th>
+                    <th className="w-12 px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -235,44 +251,11 @@ export default function ClientsPage() {
                           <Link href={`/clients/${c.id}`} className="font-medium text-primary hover:underline text-sm">
                             {c.company_name}
                           </Link>
-                          <div className="flex items-center gap-1.5 ml-1">
-                            {c.website && (
-                              <a href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
-                                target="_blank" rel="noreferrer" className="text-gray-400 hover:text-primary">
-                                <Globe className="h-3.5 w-3.5" />
-                              </a>
-                            )}
-                            <Link href={`/clients/${c.id}`} className="text-gray-400 hover:text-primary">
-                              <Eye className="h-3.5 w-3.5" />
-                            </Link>
-                            <div className="relative" ref={menuClientId === c.id ? menuRef : undefined}>
-                              <button
-                                onClick={() => setMenuClientId(menuClientId === c.id ? null : c.id)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </button>
-                              {menuClientId === c.id && (
-                                <div className="absolute right-0 top-6 z-20 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[140px]">
-                                  <Link href={`/clients/${c.id}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                    View Details
-                                  </Link>
-                                  <button
-                                    onClick={() => handleDeactivate(c.id)}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" /> Deactivate
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{c.phone || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{c.job_count}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{c.industry || "—"}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{c.location || "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{c.job_count}</td>
                       <td className="px-4 py-3"><ClientStageBadge stage={c.stage} /></td>
                       <td className="px-4 py-3">
                         {c.owner_name ? (
@@ -282,16 +265,20 @@ export default function ClientsPage() {
                           </div>
                         ) : "—"}
                       </td>
-                      <td className="px-4 py-3">
-                        {c.team_member_name ? (
-                          <div className="flex items-center gap-2">
-                            <UserAvatar name={c.team_member_name} />
-                            <span className="text-sm text-gray-700">{c.team_member_name}</span>
-                          </div>
-                        ) : "—"}
-                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatDateTimeBullet(c.created_at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => openMenu(c, e)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                            aria-label="Actions"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -303,37 +290,125 @@ export default function ClientsPage() {
         )}
       </div>
 
+      {menuClient && menuPos && (
+        <div
+          ref={menuRef}
+          className="fixed z-[100] w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 animate-slide-down"
+          style={{ top: menuPos.top, left: menuPos.left }}
+        >
+          <button
+            type="button"
+            className="dropdown-item flex items-center gap-2.5"
+            onClick={() => {
+              closeMenu();
+              router.push(`/clients/${menuClient.id}`);
+            }}
+          >
+            <Pencil className="h-4 w-4 text-gray-400" /> Edit
+          </button>
+          <button
+            type="button"
+            className="dropdown-item flex items-center gap-2.5"
+            onClick={() => {
+              closeMenu();
+              router.push(`/jobs/new?client_id=${menuClient.id}`);
+            }}
+          >
+            <Briefcase className="h-4 w-4 text-gray-400" /> Add Job
+          </button>
+          <button
+            type="button"
+            className="dropdown-item flex items-center gap-2.5"
+            onClick={() => openChangeStatus(menuClient)}
+          >
+            <ArrowLeftRight className="h-4 w-4 text-gray-400" /> Change Status
+          </button>
+          <div className="my-1 border-t border-gray-100" />
+          <button
+            type="button"
+            className="dropdown-item flex items-center gap-2.5 text-red-600 hover:bg-red-50"
+            onClick={() => handleArchive(menuClient.id)}
+          >
+            <Archive className="h-4 w-4" /> Archive
+          </button>
+        </div>
+      )}
+
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); setForm(emptyForm); }} title="Create Client">
-        <div className="space-y-4">
-          <Input label="Client Name *" value={form.company_name}
-            onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
-          <Input label="Contact Person" value={form.contact_person}
-            onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
-          <Input label="Email" type="email" value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Phone *" value={form.phone} placeholder="+92 300 1234567"
-            onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input label="Industry" value={form.industry}
-            onChange={(e) => setForm({ ...form, industry: e.target.value })} />
-          <Input label="Location" value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })} />
-          <Input label="Website" value={form.website}
-            onChange={(e) => setForm({ ...form, website: e.target.value })} />
-          <Select label="Stage" options={STAGES.map((s) => ({ value: s, label: s.toUpperCase() }))}
-            value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value as ClientStage })} />
-          <div className="flex gap-3 pt-2">
-            <Button onClick={handleCreate} loading={saving}>Create Client</Button>
+        <div className="space-y-5">
+          <Input
+            label="Client Name *"
+            value={form.company_name}
+            placeholder="Enter client company name"
+            onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+          />
+
+          <Select
+            label="Team *"
+            placeholder={loadingTeam ? "Loading team members..." : "Select team member"}
+            disabled={loadingTeam || !teamUsers.length}
+            options={teamUsers.map((u) => ({
+              value: String(u.id),
+              label: `${u.name} (${u.role})`,
+            }))}
+            value={form.team_user_id}
+            onChange={(e) => setForm({ ...form, team_user_id: e.target.value })}
+          />
+
+          <div className="flex gap-3 pt-1">
+            <Button onClick={handleCreate} loading={saving}>Create</Button>
             <Button variant="outline" onClick={() => { setCreateOpen(false); setForm(emptyForm); }}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!statusClient} onClose={() => setStatusClient(null)} title="Change Status" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Set status for <span className="font-medium text-gray-800">{statusClient?.company_name}</span>
+          </p>
+          <div className="space-y-2">
+            {CLIENT_STATUS_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors",
+                  selectedStatus === opt.value
+                    ? "border-primary bg-primary-50"
+                    : "border-gray-200 hover:bg-gray-50"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="client-status"
+                  checked={selectedStatus === opt.value}
+                  onChange={() => setSelectedStatus(opt.value)}
+                  className="text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-medium text-gray-800">{opt.label}</span>
+                {opt.value === "prospect" && (
+                  <span className="ml-auto text-[10px] uppercase font-semibold text-gray-400">Default</span>
+                )}
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button onClick={handleStatusSave} loading={updatingStatus}>Save Status</Button>
+            <Button variant="outline" onClick={() => setStatusClient(null)}>Cancel</Button>
           </div>
         </div>
       </Modal>
 
       <Modal open={filterOpen} onClose={() => setFilterOpen(false)} title="Filters" size="sm">
         <div className="space-y-4">
-          <Input label="Search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, phone, email..." />
-          <Select label="Stage" placeholder="All Stages"
-            options={STAGES.map((s) => ({ value: s, label: s.toUpperCase() }))}
-            value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} />
+          <Input label="Search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, industry, location..." />
+          <Select
+            label="Stage"
+            placeholder="All Stages"
+            options={CLIENT_STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label.toUpperCase() }))}
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+          />
           <div className="flex gap-2">
             <Button onClick={() => { setFilterOpen(false); setPage(1); fetchClients(); }}>Apply Filters</Button>
             <Button variant="outline" onClick={() => { setSearch(""); setStageFilter(""); setPage(1); setFilterOpen(false); }}>Clear</Button>

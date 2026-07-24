@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, MoreVertical, Pencil, Power, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -167,7 +168,7 @@ export default function TeamPage() {
       />
 
       {loading ? (
-        <TableSkeleton rows={8} cols={6} />
+        <TableSkeleton rows={8} cols={5} />
       ) : !data?.items?.length ? (
         <EmptyState title="No team members" actionLabel="Add Member" onAction={() => setAddOpen(true)} />
       ) : (
@@ -179,14 +180,17 @@ export default function TeamPage() {
                 <Th>Email</Th>
                 <Th>Role</Th>
                 <Th>Status</Th>
-                <Th>Jobs</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((u) => (
                 <Tr key={u.id} className="group">
-                  <Td><span className="font-medium">{u.name}</span></Td>
+                  <Td>
+                    <Link href={`/team/${u.id}`} className="font-medium text-[#111827] transition hover:text-primary">
+                      {u.name}
+                    </Link>
+                  </Td>
                   <Td>{u.email}</Td>
                   <Td className="capitalize">{u.role}</Td>
                   <Td>
@@ -194,7 +198,6 @@ export default function TeamPage() {
                       {u.status}
                     </Badge>
                   </Td>
-                  <Td>{u.assigned_jobs_count ?? 0}</Td>
                   <Td className="text-right">
                     <div className="relative inline-block" ref={menuId === u.id ? menuRef : undefined}>
                       <button

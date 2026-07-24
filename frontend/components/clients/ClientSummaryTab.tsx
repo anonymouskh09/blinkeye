@@ -204,18 +204,6 @@ export default function ClientSummaryTab({ client, clientId, onUpdate, onAddTeam
           )) : <p className="px-4 py-4 text-sm text-gray-400">No team members</p>}
         </SidebarSection>
 
-        <SidebarSection title="Guests" countLabel={`${guestCount} guest${guestCount !== 1 ? "s" : ""}`} onAdd={onAddGuest}>
-          {client.guests?.length ? client.guests.map((g) => (
-            <div key={g.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-900 text-white flex items-center justify-center text-xs font-semibold">{g.name[0]?.toUpperCase()}</div>
-                <span className="text-sm text-gray-800">{g.name}</span>
-              </div>
-              <Eye className="h-4 w-4 text-gray-400" />
-            </div>
-          )) : <p className="px-4 py-4 text-sm text-gray-400">No guests added yet</p>}
-        </SidebarSection>
-
         <SidebarSection title="Contacts" countLabel={`${contactCount} contact${contactCount !== 1 ? "s" : ""}`} onAdd={onAddContact}>
           {client.contacts?.length ? client.contacts.map((c) => (
             <div key={c.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
@@ -226,6 +214,18 @@ export default function ClientSummaryTab({ client, clientId, onUpdate, onAddTeam
               <Eye className="h-4 w-4 text-gray-400" />
             </div>
           )) : <p className="px-4 py-4 text-sm text-gray-400">No contacts yet</p>}
+        </SidebarSection>
+
+        <SidebarSection title="Guests" countLabel={`${guestCount} guest${guestCount !== 1 ? "s" : ""}`} onAdd={onAddGuest}>
+          {client.guests?.length ? client.guests.map((g) => (
+            <div key={g.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-indigo-900 text-white flex items-center justify-center text-xs font-semibold">{g.name[0]?.toUpperCase()}</div>
+                <span className="text-sm text-gray-800">{g.name}</span>
+              </div>
+              <Eye className="h-4 w-4 text-gray-400" />
+            </div>
+          )) : <p className="px-4 py-4 text-sm text-gray-400">No guests added yet</p>}
         </SidebarSection>
       </div>
     </div>

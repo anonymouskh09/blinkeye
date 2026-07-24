@@ -76,10 +76,20 @@ export default function CandidateDetailHeader({
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-100">
-              <span className="text-base font-bold tracking-tight text-gray-800">
-                {getInitials(candidate.name)}
-              </span>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+              {candidate.profile_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={candidate.profile_image_url}
+                  alt={candidate.name}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="text-base font-bold tracking-tight text-gray-800">
+                  {getInitials(candidate.name)}
+                </span>
+              )}
             </div>
 
             <div className="min-w-0 pt-0.5">

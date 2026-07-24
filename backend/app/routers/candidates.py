@@ -1,9 +1,9 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -62,6 +62,11 @@ def _candidate_to_response(candidate: Candidate, db: Session) -> dict:
         linkedin_url=candidate.linkedin_url,
         cv_file_path=candidate.cv_file_path,
         notes=candidate.notes,
+        headline=candidate.headline,
+        summary=candidate.summary,
+        profile_image_url=candidate.profile_image_url,
+        source=candidate.source,
+        imported_via=candidate.imported_via,
         created_by=candidate.created_by,
         created_by_name=creator.name if creator else None,
         jobs_applied_count=jobs_count,
@@ -169,6 +174,9 @@ def list_candidates(
     search: str | None = None,
     skill: str | None = None,
     location: str | None = None,
+    created_by: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -177,6 +185,13 @@ def list_candidates(
     query = db.query(Candidate)
     if current_user.role != UserRole.ADMIN:
         query = query.filter(Candidate.created_by == current_user.id)
+    elif created_by:
+        query = query.filter(Candidate.created_by == created_by)
+
+    if date_from:
+        query = query.filter(func.date(Candidate.created_at) >= date_from)
+    if date_to:
+        query = query.filter(func.date(Candidate.created_at) <= date_to)
 
     if search:
         term = f"%{search}%"

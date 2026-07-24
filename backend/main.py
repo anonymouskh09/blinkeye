@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import AppException, app_exception_handler, generic_exception_handler, http_exception_handler
 from app.core.response import success_response
-from app.routers import auth, candidates, clients, dashboard, folders, gmail, interviews, jobs, notes, outreach, pipeline, recruitment_center, reports, users
+from app.routers import auth, candidates, clients, dashboard, extension, extension_management, folders, gmail, interviews, jobs, notes, outreach, pipeline, recruitment_center, reports, users
 from app.services.outreach_scheduler_service import run_outreach_scheduler
 
 scheduler = BackgroundScheduler()
@@ -55,6 +55,8 @@ app.include_router(reports.router)
 app.include_router(recruitment_center.router)
 app.include_router(gmail.router)
 app.include_router(outreach.router)
+app.include_router(extension.router)
+app.include_router(extension_management.router)
 
 
 @app.get("/health")

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -283,22 +283,19 @@ def list_candidate_enrollments(
 
     enrollments = (
         db.query(OutreachEnrollment)
+        .options(joinedload(OutreachEnrollment.sequence).joinedload(OutreachSequence.steps))
         .filter(OutreachEnrollment.candidate_id == candidate_id)
         .order_by(OutreachEnrollment.created_at.desc())
         .all()
     )
     items = []
     for en in enrollments:
-        sequence = db.query(OutreachSequence).filter(OutreachSequence.id == en.sequence_id).first()
-        if not sequence or not can_access_sequence(sequence, current_user):
+        sequence = en.sequence
+        if not sequence or not can_access_sequence(current_user, sequence):
             continue
-        total_steps = db.query(OutreachSequenceStep).filter(
-            OutreachSequenceStep.sequence_id == sequence.id
-        ).count()
-        current_step = db.query(OutreachSequenceStep).filter(
-            OutreachSequenceStep.sequence_id == sequence.id,
-            OutreachSequenceStep.step_number == en.current_step,
-        ).first()
+        steps = sequence.steps or []
+        total_steps = len(steps)
+        current_step = next((s for s in steps if s.step_number == en.current_step), None)
         items.append({
             "id": en.id,
             "sequence_id": sequence.id,

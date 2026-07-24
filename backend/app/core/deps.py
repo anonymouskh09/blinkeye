@@ -1,4 +1,4 @@
-from fastapi import Cookie, Depends
+from fastapi import Cookie, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -28,6 +28,29 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != UserRole.ADMIN:
         raise ForbiddenException("Admin access required")
     return current_user
+
+
+def get_extension_user(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+) -> User:
+    """Authenticate the Chrome extension via `Authorization: Bearer <jwt>`.
+
+    Cookie-based auth is left untouched; the extension always uses a Bearer
+    access token issued by the /extension/auth/exchange|refresh endpoints.
+    """
+    if not authorization:
+        raise UnauthorizedException("Not authenticated")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise UnauthorizedException("Invalid authorization header")
+    payload = decode_access_token(token.strip())
+    if not payload or "sub" not in payload:
+        raise UnauthorizedException("Invalid or expired token")
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if not user or user.status != UserStatus.ACTIVE:
+        raise UnauthorizedException("User not found or inactive")
+    return user
 
 
 def get_current_user_optional(

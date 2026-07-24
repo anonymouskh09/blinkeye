@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "RecruitPro Candidate Importer",
+  "version": "1.0.0",
+  "description": "Save candidate profiles into RecruitPro ATS and assign them to jobs and hiring pipelines.",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "RecruitPro Candidate Importer",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/serviceWorker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["src/content/content.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "https://www.linkedin.com/*",
+    "https://media.licdn.com/*",
+    "https://*.licdn.com/*",
+    "https://app.example.com/*",
+    "https://api.example.com/*"
+  ]
+}

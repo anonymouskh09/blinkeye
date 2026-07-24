@@ -9,6 +9,7 @@ from app.models.job_activity import JobActivity
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
 from app.models.client_team import ClientTeamMember
+from app.models.extension_auth import ExtensionAuthCode, ExtensionToken
 from app.models.interview import Interview
 from app.models.job import Job
 from app.models.note import Note
@@ -35,6 +36,8 @@ __all__ = [
     "CandidateJobAssignment",
     "CandidateFolder",
     "CandidateFolderMember",
+    "ExtensionAuthCode",
+    "ExtensionToken",
     "Interview",
     "ActivityLog",
     "Note",

@@ -34,8 +34,8 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string
   { id: "notes", label: "Notes", icon: StickyNote, countKey: "notes" },
   { id: "attachments", label: "Attachments", icon: Paperclip, countKey: "attachments" },
   { id: "team", label: "Team", icon: Users, countKey: "team" },
-  { id: "guests", label: "Guests", icon: UserPlus, countKey: "guests" },
   { id: "contacts", label: "Contacts", icon: Contact, countKey: "contacts" },
+  { id: "guests", label: "Guests", icon: UserPlus, countKey: "guests" },
   { id: "history", label: "History", icon: History },
 ];
 
@@ -198,7 +198,6 @@ export default function ClientDetailPage() {
       <div className="bg-white rounded-lg border border-gray-200 min-h-[calc(100vh-120px)] shadow-sm overflow-hidden">
         <ClientDetailHeader
           client={client}
-          users={users}
           onUpdate={fetchClient}
           onStageChange={changeStage}
           onArchive={handleArchive}

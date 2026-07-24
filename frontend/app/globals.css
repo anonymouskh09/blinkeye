@@ -28,8 +28,12 @@ body {
     @apply bg-white rounded-2xl border border-gray-200/80 shadow-card min-h-[calc(100vh-7rem)];
   }
 
+  .content-panel-flush {
+    @apply rounded-none border-x-0 border-t-0 min-h-[calc(100vh-4rem)];
+  }
+
   .panel-header {
-    @apply flex items-center justify-between px-6 py-5 border-b border-gray-100;
+    @apply flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gray-50;
   }
 
   .panel-title {

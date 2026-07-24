@@ -93,6 +93,11 @@ class CandidateResponse(BaseModel):
     linkedin_url: str | None
     cv_file_path: str | None
     notes: str | None
+    headline: str | None = None
+    summary: str | None = None
+    profile_image_url: str | None = None
+    source: str | None = None
+    imported_via: str | None = None
     created_by: int
     created_by_name: str | None = None
     jobs_applied_count: int = 0

@@ -94,7 +94,7 @@ export default function CandidateSummaryTab({ candidate, notes, history, jobs, o
   const extras = candidate.profile_extras || {};
   const firstName = extras.first_name || candidate.name.split(" ")[0] || "";
   const lastName = extras.last_name || candidate.name.split(" ").slice(1).join(" ") || "";
-  const summary = extras.summary || "";
+  const summary = extras.summary || candidate.summary || "";
 
   const patch = async (payload: Record<string, unknown>) => {
     await api.patch(`/candidates/${candidate.id}/profile`, payload);

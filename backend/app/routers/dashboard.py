@@ -51,21 +51,38 @@ def get_charts(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    pipeline_stages = []
-    for stage in PIPELINE_STAGES_ORDER:
-        count = db.query(CandidateJobAssignment).filter(CandidateJobAssignment.status == stage).count()
-        pipeline_stages.append(ChartDataPoint(name=stage.value.replace("_", " ").title(), value=count))
+    stage_counts = dict(
+        db.query(CandidateJobAssignment.status, func.count(CandidateJobAssignment.id))
+        .group_by(CandidateJobAssignment.status)
+        .all()
+    )
+    pipeline_stages = [
+        ChartDataPoint(
+            name=stage.value.replace("_", " ").title(),
+            value=stage_counts.get(stage, 0),
+        )
+        for stage in PIPELINE_STAGES_ORDER
+    ]
 
-    jobs_by_status = []
-    for status in JobStatus:
-        count = db.query(Job).filter(Job.status == status).count()
-        jobs_by_status.append(ChartDataPoint(name=status.value.replace("-", " ").title(), value=count))
+    status_counts = dict(
+        db.query(Job.status, func.count(Job.id)).group_by(Job.status).all()
+    )
+    jobs_by_status = [
+        ChartDataPoint(name=status.value.replace("-", " ").title(), value=status_counts.get(status, 0))
+        for status in JobStatus
+    ]
 
+    recruiter_counts = dict(
+        db.query(User.name, func.count(Candidate.id))
+        .join(Candidate, Candidate.created_by == User.id)
+        .filter(User.role == UserRole.RECRUITER, User.status == UserStatus.ACTIVE)
+        .group_by(User.id, User.name)
+        .all()
+    )
     recruiters = db.query(User).filter(User.role == UserRole.RECRUITER, User.status == UserStatus.ACTIVE).all()
-    recruiter_performance = []
-    for recruiter in recruiters:
-        count = db.query(Candidate).filter(Candidate.created_by == recruiter.id).count()
-        recruiter_performance.append(ChartDataPoint(name=recruiter.name, value=count))
+    recruiter_performance = [
+        ChartDataPoint(name=r.name, value=recruiter_counts.get(r.name, 0)) for r in recruiters
+    ]
 
     charts = DashboardCharts(
         pipeline_stages=pipeline_stages,
@@ -80,10 +97,16 @@ def get_recent_activity(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    logs = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(10).all()
+    logs = (
+        db.query(ActivityLog)
+        .options(joinedload(ActivityLog.created_by_user))
+        .order_by(ActivityLog.created_at.desc())
+        .limit(10)
+        .all()
+    )
     recent = []
     for log in logs:
-        creator = db.query(User).filter(User.id == log.created_by).first()
+        creator = log.created_by_user
         recent.append(
             ActivityLogResponse(
                 id=log.id,

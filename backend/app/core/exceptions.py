@@ -3,8 +3,9 @@ from fastapi.responses import JSONResponse
 
 
 class AppException(HTTPException):
-    def __init__(self, status_code: int, message: str):
+    def __init__(self, status_code: int, message: str, data: object | None = None):
         self.message = message
+        self.data = data
         super().__init__(status_code=status_code, detail=message)
 
 
@@ -28,10 +29,15 @@ class BadRequestException(AppException):
         super().__init__(status_code=400, message=message)
 
 
+class ConflictException(AppException):
+    def __init__(self, message: str = "Resource already exists", data: object | None = None):
+        super().__init__(status_code=409, message=message, data=data)
+
+
 async def app_exception_handler(_request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "data": None, "message": exc.message},
+        content={"success": False, "data": getattr(exc, "data", None), "message": exc.message},
     )
 
 
