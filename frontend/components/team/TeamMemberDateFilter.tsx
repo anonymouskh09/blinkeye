@@ -74,7 +74,7 @@ export default function TeamMemberDateFilter({ value, onChange }: Props) {
     <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary">
             <Calendar className="h-4 w-4" />
           </div>
           <div>
@@ -97,7 +97,7 @@ export default function TeamMemberDateFilter({ value, onChange }: Props) {
                   "rounded-full px-3 py-1.5 text-xs font-medium transition",
                   active
                     ? "bg-primary text-white shadow-sm"
-                    : "bg-[#F8FAFC] text-[#374151] ring-1 ring-[#E5E7EB] hover:bg-indigo-50 hover:text-primary",
+                    : "bg-[#F8FAFC] text-[#374151] ring-1 ring-[#E5E7EB] hover:bg-primary-50 hover:text-primary",
                 )}
               >
                 {preset.label}

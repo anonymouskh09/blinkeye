@@ -361,7 +361,7 @@ export default function CandidateInboxTab({ candidate, candidateId }: Props) {
                           {v}
                         </button>
                       ))}
-                      <span className="text-[11px] px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-100 text-violet-500 flex items-center gap-1 opacity-50 cursor-not-allowed">
+                      <span className="text-[11px] px-2.5 py-1 rounded-lg bg-primary-50 border border-primary-100 text-primary-500 flex items-center gap-1 opacity-50 cursor-not-allowed">
                         <Sparkles className="h-3 w-3" /> AI
                       </span>
                     </div>

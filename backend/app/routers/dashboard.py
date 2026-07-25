@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -37,11 +37,32 @@ def get_stats(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    interviews_this_week = (
+        db.query(Interview)
+        .filter(
+            Interview.interview_date >= week_start,
+            Interview.interview_date <= week_end,
+            Interview.status != InterviewStatus.CANCELLED,
+        )
+        .count()
+    )
+    offers_extended = (
+        db.query(CandidateJobAssignment)
+        .filter(CandidateJobAssignment.status == PipelineStage.OFFER_SENT)
+        .count()
+    )
+
     stats = DashboardStats(
         total_clients=db.query(Client).filter(Client.status == ClientStatus.ACTIVE).count(),
         total_active_jobs=db.query(Job).filter(Job.status == JobStatus.ACTIVE).count(),
         total_candidates=db.query(Candidate).count(),
         total_team_members=db.query(User).filter(User.status == UserStatus.ACTIVE).count(),
+        interviews_this_week=interviews_this_week,
+        offers_extended=offers_extended,
     )
     return success_response(data=stats.model_dump(), message="Stats retrieved")
 

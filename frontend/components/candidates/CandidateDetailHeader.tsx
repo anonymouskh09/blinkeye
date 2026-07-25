@@ -44,7 +44,7 @@ function buildTags(candidate: Candidate): string[] {
 
 const TAG_STYLES = [
   "border-emerald-200 bg-emerald-50 text-emerald-700",
-  "border-blue-200 bg-blue-50 text-blue-700",
+  "border-primary-200 bg-primary-50 text-primary-700",
   "border-gray-200 bg-gray-50 text-gray-600",
 ];
 

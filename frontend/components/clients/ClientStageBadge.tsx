@@ -3,7 +3,7 @@ import type { ClientStage } from "@/types";
 
 const STAGE_STYLES: Record<ClientStage, string> = {
   prospect: "bg-primary-500 text-white",
-  lead: "bg-indigo-500 text-white",
+  lead: "bg-primary-600 text-white",
   active: "bg-green-500 text-white",
   on_hold: "bg-amber-500 text-white",
   customer: "bg-amber-500 text-white",

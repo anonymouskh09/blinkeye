@@ -38,7 +38,7 @@ export default function TeamMemberClientsTab({ clients }: Props) {
           <Tr key={client.id}>
             <Td>
               <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-2 font-medium text-[#111827] hover:text-primary">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
                   <Building2 className="h-4 w-4" />
                 </span>
                 {client.company_name}

@@ -64,7 +64,7 @@ export default function TeamMemberCandidatesTab({ userId, dateFrom, dateTo }: Pr
             <Tr key={c.id}>
               <Td>
                 <div className="flex items-center gap-2.5">
-                  <ClientAvatar name={c.name} size="sm" className="!bg-indigo-100 !text-indigo-700" />
+                  <ClientAvatar name={c.name} size="sm" className="!bg-primary-100 !text-primary-700" />
                   <Link href={`/candidates/${c.id}`} className="font-medium text-[#111827] hover:text-primary">
                     {c.name}
                   </Link>

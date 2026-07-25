@@ -6,6 +6,8 @@ class DashboardStats(BaseModel):
     total_active_jobs: int
     total_candidates: int
     total_team_members: int
+    interviews_this_week: int = 0
+    offers_extended: int = 0
 
 
 class RecruiterDashboardStats(BaseModel):

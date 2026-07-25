@@ -41,7 +41,7 @@ export default function ActivitiesPage() {
   useEffect(() => { fetchActivities(); }, [fetchActivities]);
 
   const typeBadge = (type: string) => {
-    if (type === "client_activity") return "bg-purple-100 text-purple-800";
+    if (type === "client_activity") return "bg-primary-100 text-primary-800";
     return "bg-gray-100 text-gray-700";
   };
 

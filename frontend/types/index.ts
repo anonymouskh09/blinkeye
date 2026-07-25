@@ -427,6 +427,8 @@ export interface DashboardStats {
   total_active_jobs: number;
   total_candidates: number;
   total_team_members: number;
+  interviews_this_week: number;
+  offers_extended: number;
 }
 
 export interface ChartDataPoint {

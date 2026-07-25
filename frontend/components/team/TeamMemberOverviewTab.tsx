@@ -44,9 +44,9 @@ export default function TeamMemberOverviewTab({ stats }: Props) {
       <section>
         <SectionTitle>Sourcing</SectionTitle>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard label="Candidates Created" value={stats.candidates_created} icon={Users} accent="bg-indigo-50 text-indigo-600" />
-          <StatCard label="Candidates Owned" value={stats.candidates_owned} icon={UserRound} accent="bg-sky-50 text-sky-600" />
-          <StatCard label="Resumes Added" value={stats.resumes_added} icon={Upload} accent="bg-violet-50 text-violet-600" />
+          <StatCard label="Candidates Created" value={stats.candidates_created} icon={Users} accent="bg-primary-50 text-primary-600" />
+          <StatCard label="Candidates Owned" value={stats.candidates_owned} icon={UserRound} accent="bg-emerald-50 text-emerald-600" />
+          <StatCard label="Resumes Added" value={stats.resumes_added} icon={Upload} accent="bg-secondary-50 text-secondary-600" />
         </div>
       </section>
 
@@ -55,7 +55,7 @@ export default function TeamMemberOverviewTab({ stats }: Props) {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatCard label="Added to Job" value={stats.added_to_job} icon={GitBranch} accent="bg-amber-50 text-amber-600" />
           <StatCard label="Shortlisted" value={stats.shortlisted} icon={Star} accent="bg-emerald-50 text-emerald-600" />
-          <StatCard label="Interviewed" value={stats.interviewed} icon={UserCheck} accent="bg-blue-50 text-blue-600" />
+          <StatCard label="Interviewed" value={stats.interviewed} icon={UserCheck} accent="bg-primary-50 text-primary-600" />
           <StatCard label="Offers" value={stats.offers} icon={Briefcase} accent="bg-orange-50 text-orange-600" />
           <StatCard label="Hired" value={stats.hired} icon={Trophy} accent="bg-green-50 text-green-600" />
         </div>
@@ -66,10 +66,10 @@ export default function TeamMemberOverviewTab({ stats }: Props) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard label="Total Jobs" value={stats.jobs.total} icon={Briefcase} accent="bg-gray-50 text-gray-600" />
           <StatCard label="Active" value={stats.jobs.active} icon={Briefcase} accent="bg-emerald-50 text-emerald-600" />
-          <StatCard label="Pending" value={stats.jobs.pending} icon={Briefcase} accent="bg-sky-50 text-sky-600" />
+          <StatCard label="Pending" value={stats.jobs.pending} icon={Briefcase} accent="bg-primary-50 text-primary-500" />
           <StatCard label="On Hold" value={stats.jobs.on_hold} icon={Briefcase} accent="bg-amber-50 text-amber-600" />
           <StatCard label="Closed" value={stats.jobs.closed} icon={Briefcase} accent="bg-gray-50 text-gray-500" />
-          <StatCard label="Filled" value={stats.jobs.filled} icon={Briefcase} accent="bg-violet-50 text-violet-600" />
+          <StatCard label="Filled" value={stats.jobs.filled} icon={Briefcase} accent="bg-secondary-50 text-secondary-600" />
         </div>
       </section>
     </div>

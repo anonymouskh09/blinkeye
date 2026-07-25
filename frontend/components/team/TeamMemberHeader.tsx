@@ -7,9 +7,9 @@ import { cn, getInitials } from "@/lib/utils";
 import type { User } from "@/types";
 
 const ROLE_STYLES: Record<string, string> = {
-  admin: "bg-violet-100 text-violet-700 ring-violet-200",
-  manager: "bg-sky-100 text-sky-700 ring-sky-200",
-  recruiter: "bg-indigo-100 text-indigo-700 ring-indigo-200",
+  admin: "bg-primary-100 text-primary-800 ring-primary-200",
+  manager: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+  recruiter: "bg-primary-50 text-primary-700 ring-primary-200",
 };
 
 interface Props {
@@ -28,7 +28,7 @@ export default function TeamMemberHeader({ user }: Props) {
       </Link>
 
       <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-bold text-white shadow-md">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-xl font-bold text-white shadow-md">
           {getInitials(user.name)}
         </div>
         <div>

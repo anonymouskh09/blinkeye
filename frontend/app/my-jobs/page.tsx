@@ -37,7 +37,7 @@ export default function MyJobsPage() {
         {loading ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />) : (
           <>
             <StatCard title="Assigned Jobs" value={data?.stats.assigned_jobs ?? 0} icon={Briefcase} />
-            <StatCard title="Candidates Added" value={data?.stats.candidates_added ?? 0} icon={UserCheck} color="bg-purple-50 text-purple-600" />
+            <StatCard title="Candidates Added" value={data?.stats.candidates_added ?? 0} icon={UserCheck} color="bg-primary-50 text-primary-600" />
             <StatCard title="Interviews Scheduled" value={data?.stats.interviews_scheduled ?? 0} icon={Calendar} color="bg-orange-50 text-orange-600" />
             <StatCard title="Hired Candidates" value={data?.stats.hired_candidates ?? 0} icon={Trophy} color="bg-green-50 text-green-600" />
           </>

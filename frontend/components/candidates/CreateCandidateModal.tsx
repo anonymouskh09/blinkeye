@@ -45,8 +45,8 @@ const MENU_OPTIONS = [
     id: "import",
     label: "Import a JSON or CSV file",
     icon: Table2,
-    iconClass: "text-indigo-600",
-    bg: "bg-indigo-50",
+    iconClass: "text-primary-600",
+    bg: "bg-primary-50",
   },
 ] as const;
 

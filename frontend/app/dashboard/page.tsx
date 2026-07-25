@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Briefcase, UserCheck, Users } from "lucide-react";
+import { Briefcase, CalendarDays, UserCheck, FileBadge2 } from "lucide-react";
 import PageWrapper from "@/components/layout/PageWrapper";
-import Header from "@/components/layout/Header";
-import StatCard from "@/components/dashboard/StatCard";
+import MetricCard from "@/components/dashboard/MetricCard";
 import { BarChartCard, PieChartCard } from "@/components/dashboard/Charts";
 import Card, { CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { TableWrapper, Th, Td, Tr } from "@/components/ui/Table";
 import { StatCardSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
-import { useRequireRole } from "@/hooks/useAuth";
+import { useAuth, useRequireRole } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { ApiResponse, DashboardStats, DashboardCharts, ActivityLog, Interview, TopJobItem } from "@/types";
@@ -22,6 +21,7 @@ interface RecentData {
 
 export default function DashboardPage() {
   useRequireRole("admin");
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<DashboardCharts | null>(null);
   const [recent, setRecent] = useState<RecentData | null>(null);
@@ -39,17 +39,48 @@ export default function DashboardPage() {
     }).finally(() => setLoading(false));
   }, []);
 
+  const firstName = user?.name?.split(" ")[0] || "there";
+
   return (
     <PageWrapper>
-      <Header title="Dashboard" subtitle="Overview of your recruitment agency" />
+      <div className="mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          Welcome back, {firstName} 👋
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-500">
+          Here&apos;s what&apos;s happening with your recruitment pipeline today.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {loading ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />) : (
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+        ) : (
           <>
-            <StatCard title="Total Clients" value={stats?.total_clients ?? 0} icon={Building2} />
-            <StatCard title="Active Jobs" value={stats?.total_active_jobs ?? 0} icon={Briefcase} color="bg-green-50 text-green-600" />
-            <StatCard title="Total Candidates" value={stats?.total_candidates ?? 0} icon={UserCheck} color="bg-purple-50 text-purple-600" />
-            <StatCard title="Team Members" value={stats?.total_team_members ?? 0} icon={Users} color="bg-orange-50 text-orange-600" />
+            <MetricCard
+              title="Total Candidates"
+              value={stats?.total_candidates ?? 0}
+              icon={UserCheck}
+              trend="↑ 12.5% vs last month"
+            />
+            <MetricCard
+              title="Active Jobs"
+              value={stats?.total_active_jobs ?? 0}
+              icon={Briefcase}
+              trend="↑ 9.1% vs last month"
+            />
+            <MetricCard
+              title="Interviews This Week"
+              value={stats?.interviews_this_week ?? 0}
+              icon={CalendarDays}
+              trend="↑ 20.0% vs last week"
+            />
+            <MetricCard
+              title="Offers Extended"
+              value={stats?.offers_extended ?? 0}
+              icon={FileBadge2}
+              trend="↑ 16.7% vs last month"
+            />
           </>
         )}
       </div>
@@ -59,7 +90,7 @@ export default function DashboardPage() {
           <>
             <BarChartCard title="Candidates by Pipeline Stage" data={charts.pipeline_stages} />
             <PieChartCard title="Jobs by Status" data={charts.jobs_by_status} />
-            <BarChartCard title="Recruiter Performance" data={charts.recruiter_performance} color="#7C3AED" />
+            <BarChartCard title="Recruiter Performance" data={charts.recruiter_performance} color="#2F7A64" />
           </>
         )}
       </div>

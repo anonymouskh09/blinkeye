@@ -208,7 +208,7 @@ export default function ClientSummaryTab({ client, clientId, onUpdate, onAddTeam
           {client.contacts?.length ? client.contacts.map((c) => (
             <div key={c.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-900 text-white flex items-center justify-center text-xs font-semibold">{c.name[0]?.toUpperCase()}</div>
+                <div className="w-7 h-7 rounded-full bg-primary-800 text-white flex items-center justify-center text-xs font-semibold">{c.name[0]?.toUpperCase()}</div>
                 <span className="text-sm text-gray-800">{c.name}</span>
               </div>
               <Eye className="h-4 w-4 text-gray-400" />
@@ -220,7 +220,7 @@ export default function ClientSummaryTab({ client, clientId, onUpdate, onAddTeam
           {client.guests?.length ? client.guests.map((g) => (
             <div key={g.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-900 text-white flex items-center justify-center text-xs font-semibold">{g.name[0]?.toUpperCase()}</div>
+                <div className="w-7 h-7 rounded-full bg-primary-800 text-white flex items-center justify-center text-xs font-semibold">{g.name[0]?.toUpperCase()}</div>
                 <span className="text-sm text-gray-800">{g.name}</span>
               </div>
               <Eye className="h-4 w-4 text-gray-400" />

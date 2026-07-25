@@ -7,7 +7,7 @@ import {
 import Card, { CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import type { ChartDataPoint } from "@/types";
 
-const COLORS = ["#4F46E5", "#6366F1", "#818CF8", "#A78BFA", "#7C3AED", "#4338CA", "#C7D2FE", "#E0E7FF"];
+const COLORS = ["#1F574A", "#2F7A64", "#4A9A84", "#7BBFAE", "#2D6B5A", "#184439", "#A8D5C8", "#D4EBE3"];
 
 interface BarChartCardProps {
   title: string;
@@ -15,7 +15,7 @@ interface BarChartCardProps {
   color?: string;
 }
 
-export function BarChartCard({ title, data, color = "#4F46E5" }: BarChartCardProps) {
+export function BarChartCard({ title, data, color = "#1F574A" }: BarChartCardProps) {
   return (
     <Card>
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>

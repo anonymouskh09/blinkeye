@@ -5,8 +5,8 @@
 :root {
   --background: #f8fafc;
   --foreground: #111827;
-  --primary: #4f46e5;
-  --secondary: #7c3aed;
+  --primary: #1f574a;
+  --secondary: #2d6b5a;
   --card: #ffffff;
   --border: #e5e7eb;
   --muted: #6b7280;
@@ -107,6 +107,15 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 
   .animate-modal-backdrop {

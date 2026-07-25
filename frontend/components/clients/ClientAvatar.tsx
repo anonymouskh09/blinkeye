@@ -4,7 +4,7 @@ const AVATAR_COLORS = [
   "bg-amber-400 text-amber-900",
   "bg-teal-500 text-white",
   "bg-primary-500 text-white",
-  "bg-purple-500 text-white",
+  "bg-secondary-500 text-white",
   "bg-rose-500 text-white",
   "bg-emerald-500 text-white",
 ];

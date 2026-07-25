@@ -10,6 +10,11 @@ import {
   Users, CalendarDays, BarChart3, GitBranch, BadgeCheck, Contact, MessagesSquare, Send,
 } from "lucide-react";
 
+const ACCENT = "#1F574A";
+const ACTIVE_BG = "#E8F3EF";
+const ACTIVE_ICON_BG = "#D4EBE3";
+const SECTION_COLOR = "#2D6B5A";
+
 const mainNav = [
   { href: "/dashboard", label: "Home", icon: Home, adminOnly: true },
   { href: "/my-jobs", label: "Home", icon: Home, recruiterOnly: true },
@@ -21,7 +26,7 @@ const mainNav = [
 const recruitmentCenter = [
   { href: "/matches", label: "Matches", icon: GitBranch },
   { href: "/placements", label: "Placements", icon: BadgeCheck },
-  { href: "/contacts", label: "Contacts and Guests", icon: Contact, adminOnly: true },
+  { href: "/contacts", label: "Guests", icon: Contact, adminOnly: true },
   { href: "/activities", label: "Activities", icon: CalendarDays },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare },
   { href: "/outreach", label: "Outreach", icon: Send },
@@ -51,19 +56,34 @@ export default function Sidebar() {
         key={href + label}
         href={href}
         className={cn(
-          "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+          "group relative flex items-center gap-2.5 mx-2 px-3 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl",
           active
-            ? "bg-[#E6F4EA] text-[#2D8A5B] shadow-sm border border-[#C8E6D0]"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+            ? "text-[#1F574A] font-semibold"
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
         )}
+        style={active ? { backgroundColor: ACTIVE_BG } : undefined}
         title={collapsed ? label : undefined}
       >
-        <Icon
+        {active && (
+          <span
+            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
+            style={{ backgroundColor: ACCENT }}
+          />
+        )}
+        <span
           className={cn(
-            "h-[18px] w-[18px] shrink-0 transition-colors",
-            active ? "text-[#2D8A5B]" : "text-gray-400 group-hover:text-gray-600",
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+            active ? "" : "bg-slate-100 group-hover:bg-slate-200/80",
           )}
-        />
+          style={active ? { backgroundColor: ACTIVE_ICON_BG } : undefined}
+        >
+          <Icon
+            className={cn(
+              "h-[16px] w-[16px] transition-colors",
+              active ? "text-[#1F574A]" : "text-slate-500 group-hover:text-slate-700",
+            )}
+          />
+        </span>
         {!collapsed && <span className="truncate">{label}</span>}
       </Link>
     );
@@ -72,37 +92,49 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-full bg-white border-r border-gray-200/80 flex flex-col transition-all duration-300 z-40 shadow-sm",
-        collapsed ? "w-[72px]" : "w-60",
+        "fixed left-0 top-0 h-full flex flex-col bg-white border-r border-slate-200 transition-all duration-300 z-40",
+        collapsed ? "w-[72px]" : "w-52",
       )}
     >
-      <div className="flex items-center justify-between px-4 h-16 border-b border-gray-100">
+      <div className="flex items-center justify-between px-3 h-16 border-b border-slate-100">
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-[#2D8A5B] flex items-center justify-center shadow-sm shrink-0">
-              <Briefcase className="h-4 w-4 text-white" />
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold text-white text-sm"
+              style={{ backgroundColor: ACCENT }}
+            >
+              R
             </div>
-            <span className="font-bold text-base text-gray-900 tracking-tight truncate">RecruitPro</span>
+            <div className="min-w-0">
+              <span className="font-bold text-base text-slate-900 tracking-tight truncate block">RecruitPro</span>
+              <span className="text-[10px] text-slate-400 truncate block">Recruitment CRM</span>
+            </div>
           </div>
         )}
         <button
           onClick={toggle}
-          className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ml-auto"
+          className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors ml-auto border border-slate-200"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
         </button>
       </div>
 
-      <nav className="flex-1 py-4 space-y-1 px-3 overflow-y-auto">
+      <nav className="flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-none">
         {navItems.map(({ href, label, icon: Icon }) => renderLink(href, label, Icon))}
 
         {!collapsed && (
-          <p className="px-3 pt-5 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-            Recruitment Center
-          </p>
+          <div className="px-3.5 pt-6 pb-2">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: SECTION_COLOR }}
+            >
+              Recruitment Center
+            </p>
+            <div className="mt-2 h-px bg-slate-100" />
+          </div>
         )}
-        {collapsed && <div className="h-px bg-gray-100 my-3 mx-1" />}
+        {collapsed && <div className="h-px bg-slate-100 my-3 mx-1" />}
 
         {recruitmentCenter
           .filter((i) => !i.adminOnly || isAdmin)
@@ -111,9 +143,15 @@ export default function Sidebar() {
         {isAdmin && (
           <>
             {!collapsed && (
-              <p className="px-3 pt-5 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                Admin
-              </p>
+              <div className="px-3.5 pt-6 pb-2">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-widest"
+                  style={{ color: SECTION_COLOR }}
+                >
+                  Admin
+                </p>
+                <div className="mt-2 h-px bg-slate-100" />
+              </div>
             )}
             {adminExtra.map(({ href, label, icon: Icon }) => renderLink(href, label, Icon))}
           </>
@@ -121,20 +159,32 @@ export default function Sidebar() {
       </nav>
 
       {user && (
-        <div className="border-t border-gray-100 p-3">
-          <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
-            <div className="w-9 h-9 rounded-xl bg-[#2D8A5B] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-              {getInitials(user.name)}
+        <div className="p-2">
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-xl border border-[#D4EBE3] p-2",
+              collapsed && "justify-center",
+            )}
+            style={{ backgroundColor: ACTIVE_BG }}
+          >
+            <div className="relative shrink-0">
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                style={{ backgroundColor: ACCENT }}
+              >
+                {getInitials(user.name)}
+              </div>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white bg-emerald-400" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-400 capitalize">{user.role}</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
+                <p className="text-xs text-slate-500 capitalize">{user.role}</p>
               </div>
             )}
             <button
               onClick={logout}
-              className="p-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/70 text-slate-400 hover:text-slate-700 shrink-0 transition-colors"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />

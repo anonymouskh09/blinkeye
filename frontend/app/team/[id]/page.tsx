@@ -119,7 +119,7 @@ export default function TeamMemberDetailPage() {
                     <Icon className="h-4 w-4" />
                     {label}
                     {count !== undefined && count > 0 && (
-                      <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                      <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                         {count}
                       </span>
                     )}

@@ -47,7 +47,7 @@ export function jobStatusColor(status: JobStatus): string {
 export function pipelineStageColor(stage: PipelineStage): string {
   if (stage === "hired") return "bg-green-100 text-green-800";
   if (stage === "rejected") return "bg-red-100 text-red-800";
-  if (stage.includes("interview")) return "bg-purple-100 text-purple-800";
+  if (stage.includes("interview")) return "bg-primary-100 text-primary-800";
   return "bg-primary-100 text-primary-800";
 }
 

@@ -54,7 +54,7 @@ export default function LoginPage() {
             <span className="text-3xl font-bold tracking-tight">RecruitPro</span>
           </div>
           <h1 className="text-4xl font-bold mb-4 tracking-tight">Recruitment Agency Management</h1>
-          <p className="text-indigo-200 text-lg leading-relaxed">
+          <p className="text-primary-100 text-lg leading-relaxed">
             Streamline your hiring process. Manage clients, jobs, candidates, and pipelines all in one place.
           </p>
         </div>
