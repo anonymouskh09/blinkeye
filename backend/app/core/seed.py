@@ -1,13 +1,15 @@
 from sqlalchemy.orm import Session
 
+import app.models  # noqa: F401
 from app.core.config import settings
-from app.core.database import SessionLocal
+from app.core.database import Base, SessionLocal, engine
 from app.core.security import hash_password
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
 
 
 def seed_admin():
+    Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
         existing = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()

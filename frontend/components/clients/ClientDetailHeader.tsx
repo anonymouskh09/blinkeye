@@ -136,66 +136,13 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
 
   return (
     <>
-      <div className="px-6 pt-4 pb-5 border-b border-gray-200 bg-white">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <Link
-            href="/clients"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Clients
+      <div className="px-6 pt-5 pb-5 border-b border-gray-200 bg-white">
+        <div className="flex items-center gap-1.5 text-sm mb-4">
+          <Link href="/clients" className="text-[#3b82f6] hover:underline transition-colors font-normal">
+            Clients
           </Link>
-
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-colors"
-              aria-label="More actions"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 z-40 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 animate-slide-down">
-                <button
-                  type="button"
-                  className="dropdown-item flex items-center gap-2.5"
-                  onClick={() => { setEditOpen(true); setMenuOpen(false); }}
-                >
-                  <Pencil className="h-4 w-4 text-gray-400" /> Edit
-                </button>
-                <button
-                  type="button"
-                  className="dropdown-item flex items-center gap-2.5"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push(`/jobs/new?client_id=${client.id}`);
-                  }}
-                >
-                  <Briefcase className="h-4 w-4 text-gray-400" /> Add Job
-                </button>
-                <button
-                  type="button"
-                  className="dropdown-item flex items-center gap-2.5"
-                  onClick={() => {
-                    setSelectedStatus(client.stage === "customer" ? "on_hold" : client.stage);
-                    setStatusOpen(true);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <ArrowLeftRight className="h-4 w-4 text-gray-400" /> Change Status
-                </button>
-                <div className="my-1 border-t border-gray-100" />
-                <button
-                  type="button"
-                  className="dropdown-item flex items-center gap-2.5 text-red-600 hover:bg-red-50"
-                  onClick={() => { setMenuOpen(false); onArchive(); }}
-                >
-                  <Archive className="h-4 w-4" /> Archive
-                </button>
-              </div>
-            )}
-          </div>
+          <span className="text-gray-400">/</span>
+          <span className="font-semibold text-gray-900">{client.company_name}</span>
         </div>
 
         <div className="flex items-start gap-5">
@@ -210,13 +157,13 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <ClientStageBadge stage={client.stage} />
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
                     {isPublic ? <><Globe className="h-3 w-3" /> Public</> : <><Lock className="h-3 w-3" /> Private</>}
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">{client.company_name}</h1>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-500">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500">
                   {client.location && (
                     <span className="inline-flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-gray-400" />
@@ -246,7 +193,7 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
                   <UserAvatar name={client.owner_name} size="md" />
                   <div>
                     <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Owner</p>
-                    <p className="text-sm font-semibold text-gray-800">{client.owner_name}</p>
+                    <p className="text-xs font-semibold text-gray-800">{client.owner_name}</p>
                   </div>
                 </div>
               )}
@@ -272,7 +219,7 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
                 <button
                   type="button"
                   onClick={() => setTagsOpen(!tagsOpen)}
-                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
                   <Plus className="h-3.5 w-3.5" /> {selectedTags.length ? "Add Tag" : "Tags"}
                 </button>

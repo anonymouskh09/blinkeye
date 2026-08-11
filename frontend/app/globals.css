@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #f8fafc;
+  --background: #ffffff;
   --foreground: #111827;
   --primary: #1f574a;
   --secondary: #2d6b5a;
@@ -18,9 +18,15 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-figtree), system-ui, sans-serif;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, .panel-title {
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-weight: 500;
 }
 
 @layer components {
@@ -33,11 +39,12 @@ body {
   }
 
   .panel-header {
-    @apply flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gray-50;
+    @apply flex items-center justify-between px-6 py-2.5 border-b border-slate-200 bg-[#F1F4F8] mb-[14px];
   }
 
   .panel-title {
-    @apply text-xl font-semibold text-gray-900 tracking-tight;
+    @apply text-lg font-medium text-[#1F574A] tracking-tight;
+    font-family: var(--font-poppins), system-ui, sans-serif;
   }
 
   .sub-tabs {
@@ -57,38 +64,38 @@ body {
   }
 
   .toolbar {
-    @apply flex items-center justify-between px-6 py-4 border-b border-gray-50 bg-gray-50/50;
+    @apply flex items-center justify-between px-6 py-2.5 border-b border-gray-50 bg-gray-50/50;
   }
 
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg
       hover:bg-primary-700 shadow-sm hover:shadow transition-all duration-200;
   }
 
   .btn-outline-primary {
-    @apply inline-flex items-center gap-2 px-3.5 py-2 border border-primary/30 text-primary text-sm font-medium
-      rounded-xl hover:bg-primary-50 transition-all duration-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-primary/30 text-primary text-xs font-medium
+      rounded-lg hover:bg-primary-50 transition-all duration-200;
   }
 
   .btn-icon {
-    @apply p-2.5 border border-gray-200 rounded-xl text-gray-500 hover:bg-white hover:border-gray-300
+    @apply p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-white hover:border-gray-300
       hover:text-gray-700 transition-all duration-200 bg-white shadow-sm;
   }
 
   .view-toggle {
-    @apply flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm;
+    @apply flex border border-gray-200 rounded-lg overflow-hidden bg-gray-100/60 p-0.5 shadow-sm;
   }
 
   .view-toggle-btn {
-    @apply px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-200;
+    @apply px-2.5 py-1 text-xs font-normal tracking-wide transition-all duration-200 rounded-md;
   }
 
   .view-toggle-active {
-    @apply bg-primary text-white shadow-sm;
+    @apply bg-[#1F574A] text-white shadow-sm;
   }
 
   .view-toggle-inactive {
-    @apply bg-white text-gray-600 hover:bg-gray-50;
+    @apply text-gray-600 hover:text-gray-900 hover:bg-white/80;
   }
 
   .dropdown-menu {
@@ -148,4 +155,55 @@ body {
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Force 5px border-radius globally for all curved containers and elements */
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.rounded-t,
+.rounded-b,
+.rounded-l,
+.rounded-r,
+.rounded-tl,
+.rounded-tr,
+.rounded-bl,
+.rounded-br,
+.rounded-t-sm,
+.rounded-b-sm,
+.rounded-l-sm,
+.rounded-r-sm,
+.rounded-t-md,
+.rounded-b-md,
+.rounded-l-md,
+.rounded-r-md,
+.rounded-t-lg,
+.rounded-b-lg,
+.rounded-l-lg,
+.rounded-r-lg,
+.rounded-t-xl,
+.rounded-b-xl,
+.rounded-l-xl,
+.rounded-r-xl,
+.rounded-t-2xl,
+.rounded-b-2xl,
+.rounded-l-2xl,
+.rounded-r-2xl,
+.rounded-t-3xl,
+.rounded-b-3xl,
+.rounded-l-3xl,
+.rounded-r-3xl {
+  border-radius: 5px !important;
+}
+
+.rounded-full {
+  border-radius: 9999px !important;
+}
+
+.rounded-none {
+  border-radius: 0px !important;
 }

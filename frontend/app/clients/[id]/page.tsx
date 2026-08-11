@@ -190,12 +190,12 @@ export default function ClientDetailPage() {
 
   const availableUsers = users.filter((u) => !client?.team?.some((m) => m.user_id === u.id));
 
-  if (loading) return <PageWrapper><CardSkeleton /></PageWrapper>;
-  if (!client) return <PageWrapper><p className="p-8 text-gray-500">Client not found</p></PageWrapper>;
+  if (loading) return <PageWrapper flush><CardSkeleton /></PageWrapper>;
+  if (!client) return <PageWrapper flush><p className="p-8 text-gray-500">Client not found</p></PageWrapper>;
 
   return (
-    <PageWrapper>
-      <div className="bg-white rounded-lg border border-gray-200 min-h-[calc(100vh-120px)] shadow-sm overflow-hidden">
+    <PageWrapper flush>
+      <div className="bg-white min-h-[calc(100vh-56px)] overflow-hidden">
         <ClientDetailHeader
           client={client}
           onUpdate={fetchClient}
@@ -212,7 +212,7 @@ export default function ClientDetailPage() {
                 key={tabId}
                 onClick={() => setTab(tabId)}
                 className={cn(
-                  "flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap",
+                  "flex items-center gap-1.5 px-4 py-3.5 text-xs font-medium border-b-2 transition-all duration-200 whitespace-nowrap",
                   active ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
                 )}
               >

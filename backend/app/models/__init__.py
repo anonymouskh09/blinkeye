@@ -5,6 +5,7 @@ from app.models.candidate_folder import CandidateFolder, CandidateFolderMember
 from app.models.candidate_job import CandidateJobAssignment
 from app.models.client import Client
 from app.models.client_activity import ClientActivity
+from app.models.client_attachment import ClientAttachment
 from app.models.job_activity import JobActivity
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest

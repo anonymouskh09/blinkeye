@@ -1,0 +1,14 @@
+{
+  "name": "recruitpro-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RecruitPro Full-Stack Application Runner",
+  "main": "scripts/start-all.js",
+  "scripts": {
+    "dev": "node scripts/start-all.js",
+    "start": "node scripts/start-all.js",
+    "backend": "node scripts/start-backend.js",
+    "frontend": "npm run dev --prefix frontend",
+    "db:seed": "node scripts/seed-db.js"
+  }
+}

@@ -19,6 +19,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import HeaderActions from "@/components/layout/HeaderActions";
 import type { ApiResponse, Candidate, PaginatedData } from "@/types";
 
 type SubTab = "candidates" | "folders" | "ai";
@@ -88,10 +89,11 @@ function CandidatesPageContent() {
       <div className="content-panel content-panel-flush">
         <div className="panel-header">
           <div className="flex items-center gap-2.5">
-            <h1 className="panel-title">Candidates</h1>
+            <h1 className="panel-title text-lg sm:text-xl font-bold text-[#1F574A]">Candidates</h1>
             <ChevronDown className="h-4 w-4 text-gray-400" />
+            {totalCount > 0 && <span className="count-badge ml-1">{totalCount}</span>}
           </div>
-          {totalCount > 0 && <span className="count-badge">{totalCount}</span>}
+          <HeaderActions addLabel="Candidate" onAddClick={() => setCreateOpen(true)} />
         </div>
 
         <div className="sub-tabs">
@@ -112,34 +114,6 @@ function CandidatesPageContent() {
 
         {subTab === "candidates" && (
           <>
-            <div className="toolbar">
-              <button onClick={() => setCreateOpen(true)} className="btn-primary">
-                <Plus className="h-4 w-4" /> Create Candidate
-              </button>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setFilterOpen(true)} className="btn-outline-primary">
-                  <Filter className="h-4 w-4" /> Filters
-                </button>
-                <button type="button" onClick={fetchCandidates} className="btn-icon">
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-                <div className="relative" ref={menuRef}>
-                  <button onClick={() => setMenuOpen(!menuOpen)} className="btn-icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                  {menuOpen && (
-                    <div className="dropdown-menu">
-                      <button onClick={() => { setFilterOpen(true); setMenuOpen(false); }} className="dropdown-item">
-                        Export list
-                      </button>
-                      <button onClick={() => { fetchCandidates(); setMenuOpen(false); }} className="dropdown-item">
-                        Refresh all
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
             <div className="px-6 py-5">
               {loading ? (

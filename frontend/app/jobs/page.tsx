@@ -18,7 +18,7 @@ import ClientAvatar from "@/components/clients/ClientAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ApiResponse, Job, JobStatus, PaginatedData } from "@/types";
+import HeaderActions from "@/components/layout/HeaderActions";
 
 type ViewMode = "list" | "board";
 
@@ -72,52 +72,10 @@ export default function JobsPage() {
       <div className="content-panel content-panel-flush">
         <div className="panel-header">
           <div className="flex items-center gap-2.5">
-            <h1 className="panel-title">Jobs</h1>
+            <h1 className="panel-title text-lg sm:text-xl font-bold text-[#1F574A]">Jobs</h1>
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>
-          <div className="view-toggle">
-            <button
-              onClick={() => setView("board")}
-              className={cn("view-toggle-btn", view === "board" ? "view-toggle-active" : "view-toggle-inactive")}
-            >
-              <LayoutGrid className="h-3.5 w-3.5 inline mr-1" />BOARD
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={cn("view-toggle-btn", view === "list" ? "view-toggle-active" : "view-toggle-inactive")}
-            >
-              <List className="h-3.5 w-3.5 inline mr-1" />LIST
-            </button>
-          </div>
-        </div>
-
-        <div className="toolbar">
-          {isAdmin ? (
-            <button onClick={() => router.push("/jobs/new")} className="btn-primary">
-              <Plus className="h-4 w-4" /> Create Job
-            </button>
-          ) : <div />}
-          {view === "list" && (
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setFilterOpen(true)} className="btn-outline-primary">
-                <Filter className="h-4 w-4" /> Filters
-              </button>
-              <button type="button" onClick={fetchJobs} className="btn-icon">
-                <RefreshCw className="h-4 w-4" />
-              </button>
-              <div className="relative" ref={menuRef}>
-                <button onClick={() => setMenuOpen(!menuOpen)} className="btn-icon">
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-                {menuOpen && (
-                  <div className="dropdown-menu">
-                    <button onClick={() => { setFilterOpen(true); setMenuOpen(false); }} className="dropdown-item">Export list</button>
-                    <button onClick={() => { fetchJobs(); setMenuOpen(false); }} className="dropdown-item">Refresh all</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <HeaderActions addLabel="Job" onAddClick={isAdmin ? () => router.push("/jobs/new") : undefined} />
         </div>
 
         <div className="px-6 py-5">

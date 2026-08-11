@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Settings, Archive, Search, LogOut, User as UserIcon, Sliders } from "lucide-react";
+import {
+  Bell, Settings, Archive, Search, LogOut, User as UserIcon, Sliders, ChevronLeft, ChevronRight,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -10,7 +12,7 @@ import { cn, getInitials } from "@/lib/utils";
 
 export default function TopNavbar() {
   const { user, logout } = useAuth();
-  const { collapsed } = useSidebar();
+  const { collapsed, toggle } = useSidebar();
   const [search, setSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -38,28 +40,50 @@ export default function TopNavbar() {
 
   return (
     <header
-      className={cn(
-        "fixed top-0 right-0 z-30 h-16 bg-white border-b border-gray-200/80 shadow-sm transition-all duration-300",
-        collapsed ? "left-[72px]" : "left-52",
-      )}
+      className="fixed top-0 left-0 right-0 z-40 h-14 border-b border-[#18463c] shadow-sm transition-all duration-300 text-white"
+      style={{ backgroundColor: "#1F574A" }}
     >
-      <div className="h-full flex items-center justify-end px-4 lg:px-6 gap-3">
-        <form onSubmit={handleSearch} className="relative w-full max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+      <div className="h-full flex items-center justify-between px-3 lg:px-5 gap-3">
+        {/* Left: Logo & Sidebar Toggle */}
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-heading font-medium text-[#1F574A] bg-white text-xs shadow-sm"
+            >
+              R
+            </div>
+            <div className="min-w-0">
+              <span className="font-heading font-medium text-sm text-white tracking-tight truncate block">RecruitPro</span>
+              <span className="font-heading text-[9px] text-emerald-100/70 truncate block leading-none">Recruitment CRM</span>
+            </div>
+          </div>
+          <button
+            onClick={toggle}
+            className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-emerald-100 transition-colors ml-1 border border-white/15"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+
+        {/* Center: Search Box */}
+        <form onSubmit={handleSearch} className="relative w-full max-w-md mx-2">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search candidates, jobs, companies..."
-            className="w-full h-10 pl-10 pr-14 rounded-full border border-gray-200 bg-white text-sm text-gray-800
-              placeholder:text-gray-400
-              focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full h-9 pl-10 pr-14 rounded-full bg-white text-sm text-slate-800
+              placeholder:text-slate-400 border border-slate-200
+              focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-white transition-all shadow-sm"
           />
-          <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+          <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
             ⌘K
           </kbd>
         </form>
 
+        {/* Right: Actions & Profile */}
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
@@ -70,11 +94,11 @@ export default function TopNavbar() {
                 setSettingsOpen(false);
                 setProfileOpen(false);
               }}
-              className="p-2.5 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors relative"
+              className="p-2 rounded-full text-emerald-100 hover:bg-white/15 hover:text-white transition-colors relative"
               aria-label="Notifications"
             >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#1F574A]" />
+              <Bell className="h-4.5 w-4.5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400 border border-[#1F574A]" />
             </button>
             {notifOpen && (
               <div className="dropdown-menu w-72">
@@ -95,10 +119,10 @@ export default function TopNavbar() {
                 setNotifOpen(false);
                 setProfileOpen(false);
               }}
-              className="p-2.5 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+              className="p-2 rounded-full text-emerald-100 hover:bg-white/15 hover:text-white transition-colors"
               aria-label="Settings"
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-4.5 w-4.5" />
             </button>
             {settingsOpen && (
               <div className="dropdown-menu">
@@ -131,10 +155,10 @@ export default function TopNavbar() {
                 setSettingsOpen(false);
                 setNotifOpen(false);
               }}
-              className="ml-0.5 flex items-center gap-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              className="ml-0.5 flex items-center gap-2 p-1 rounded-full hover:bg-white/15 transition-colors"
               aria-label="Profile"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-xs font-bold shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-[#F1F4F8] text-[#1F574A] flex items-center justify-center text-xs font-bold shadow-sm border border-emerald-200/50">
                 {user ? getInitials(user.name) : "?"}
               </div>
             </button>

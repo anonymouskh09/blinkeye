@@ -243,6 +243,7 @@ def create_client(
     admin: User = Depends(require_admin),
 ):
     data = payload.model_dump(exclude={"team_user_ids"})
+    contact_title = data.pop("contact_title", None)
     team_user_ids = list(dict.fromkeys(payload.team_user_ids or []))
     if not data.get("owner_id"):
         data["owner_id"] = team_user_ids[0] if team_user_ids else admin.id
@@ -261,7 +262,8 @@ def create_client(
                 client_id=client.id,
                 name=payload.contact_person,
                 email=payload.email or None,
-                phone=payload.phone,
+                phone=payload.phone or None,
+                title=contact_title or None,
             )
         )
 

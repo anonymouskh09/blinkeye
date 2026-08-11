@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import ProfileSectionCard from "@/components/candidates/profile/ProfileSectionCard";
 import type { CandidateEducation, CandidateExperience } from "@/types";
 import { emptyEducation, emptyExperience } from "@/lib/candidateProfileSync";
 

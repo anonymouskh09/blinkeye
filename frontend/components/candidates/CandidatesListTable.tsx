@@ -41,8 +41,8 @@ export default function CandidatesListTable({ candidates }: Props) {
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>
-            <tr className="bg-gray-50/80 border-b border-gray-100">
-              <th className="w-10 px-3 py-3"><input type="checkbox" className="rounded border-gray-300" /></th>
+            <tr className="bg-[#F1F4F8] border-b border-gray-100">
+              <th className="w-10 px-3 py-3 rounded-l-xl"><input type="checkbox" className="rounded border-gray-300" /></th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap min-w-[220px]">
                 <span className="inline-flex items-center gap-1">Candidate Name <ArrowUpDown className="h-3 w-3" /></span>
               </th>
@@ -62,7 +62,7 @@ export default function CandidatesListTable({ candidates }: Props) {
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Current Salary</th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Expected Salary</th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Candidate Owner</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
+              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap rounded-r-xl">
                 <span className="inline-flex items-center gap-1">Candidate Created Date <ArrowUpDown className="h-3 w-3" /></span>
               </th>
             </tr>

@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import api from "@/lib/api";

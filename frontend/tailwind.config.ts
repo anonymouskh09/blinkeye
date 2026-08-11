@@ -7,11 +7,27 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    borderRadius: {
+      none: "0px",
+      sm: "5px",
+      DEFAULT: "5px",
+      md: "5px",
+      lg: "5px",
+      xl: "5px",
+      "2xl": "5px",
+      "3xl": "5px",
+      full: "9999px",
+    },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-figtree)", "system-ui", "sans-serif"],
+        heading: ["var(--font-poppins)", "system-ui", "sans-serif"],
+      },
       colors: {
+        white: "#ffffff",
         primary: {
           DEFAULT: "#1F574A",
-          50: "#E8F3EF",
+          50: "#F1F4F8",
           100: "#D4EBE3",
           200: "#A8D5C8",
           300: "#7BBFAE",
@@ -36,8 +52,8 @@ const config: Config = {
           900: "#122C25",
         },
         surface: {
-          DEFAULT: "#FFFFFF",
-          muted: "#F8FAFC",
+          DEFAULT: "#ffffff",
+          muted: "#ffffff",
         },
         border: {
           DEFAULT: "#E5E7EB",
@@ -45,10 +61,7 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
-      borderRadius: {
-        xl: "12px",
-        "2xl": "16px",
-      },
+
       boxShadow: {
         card: "0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)",
         "card-hover": "0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06)",

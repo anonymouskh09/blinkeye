@@ -4,7 +4,7 @@ import { LucideIcon } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
 const ACCENT = "#2F7A64";
-const ACCENT_SOFT = "#E8F3EF";
+const ACCENT_SOFT = "#F1F4F8";
 
 interface MetricCardProps {
   title: string;

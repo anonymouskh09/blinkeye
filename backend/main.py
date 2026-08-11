@@ -11,11 +11,21 @@ from app.core.response import success_response
 from app.routers import auth, candidates, clients, dashboard, extension, extension_management, folders, gmail, interviews, jobs, notes, outreach, pipeline, recruitment_center, reports, users
 from app.services.outreach_scheduler_service import run_outreach_scheduler
 
+from app.core.database import Base, engine
+from app.core.seed import seed_admin
+
 scheduler = BackgroundScheduler()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import app.models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+    try:
+        seed_admin()
+    except Exception as e:
+        print(f"Seed info: {e}")
+
     scheduler.add_job(run_outreach_scheduler, "interval", minutes=1, id="outreach_sender", replace_existing=True)
     scheduler.start()
     yield

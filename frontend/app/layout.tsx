@@ -1,9 +1,19 @@
-import { Inter } from "next/font/google";
+import { Figtree, Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/hooks/useAuth";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const figtree = Figtree({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-figtree",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-poppins",
+});
 
 export const metadata = {
   title: "RecruitPro - Recruitment Agency Management",
@@ -13,7 +23,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${figtree.variable} ${poppins.variable} antialiased`}>
         <AuthProvider>
           {children}
           <Toaster

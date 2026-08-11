@@ -24,6 +24,7 @@ class ClientBase(BaseModel):
 class ClientCreate(BaseModel):
     company_name: str = Field(min_length=1, max_length=255)
     contact_person: str = Field(default="", max_length=255)
+    contact_title: str | None = None
     email: str = Field(default="")
     phone: str | None = None
     industry: str | None = None

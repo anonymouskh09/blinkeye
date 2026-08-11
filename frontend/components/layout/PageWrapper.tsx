@@ -1,7 +1,6 @@
 "use client";
 
 import Sidebar from "./Sidebar";
-import TopNavbar from "./TopNavbar";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -23,9 +22,9 @@ function MainContent({
     <main
       className={cn(
         "min-h-screen transition-all duration-300",
-        isDark ? "pt-0 bg-[#0a0b0d]" : "pt-16 bg-surface-muted",
+        isDark ? "bg-[#0a0b0d]" : "bg-white",
         !flush && (isDark ? "p-5 lg:p-6" : "p-4 lg:p-8"),
-        collapsed ? "ml-[72px]" : "ml-52",
+        collapsed ? "ml-[72px]" : "ml-48",
       )}
     >
       {flush ? children : <div className="max-w-[1600px] mx-auto">{children}</div>}
@@ -66,7 +65,6 @@ export default function PageWrapper({
     <SidebarProvider>
       <div className={cn("min-h-screen", isDark ? "bg-[#0a0b0d]" : "bg-surface-muted")}>
         <Sidebar />
-        {!isDark && <TopNavbar />}
         <MainContent flush={flush} variant={variant}>
           {children}
         </MainContent>
