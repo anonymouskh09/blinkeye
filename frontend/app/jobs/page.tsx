@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import HeaderActions from "@/components/layout/HeaderActions";
+import type { JobStatus } from "@/types";
 
 type ViewMode = "list" | "board";
 
