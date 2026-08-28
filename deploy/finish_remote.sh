@@ -49,32 +49,43 @@ module.exports = {
 };
 EOF
 
-cat > /etc/nginx/sites-available/recruite.lancerstech.com <<'NGINX'
+cat > /etc/nginx/sites-available/recruite.lancerstech.com <<NGINX
 server {
     listen 80;
     server_name recruite.lancerstech.com;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name recruite.lancerstech.com;
+
+    ssl_certificate /etc/letsencrypt/live/recruite.lancerstech.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/recruite.lancerstech.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     client_max_body_size 20M;
 
     location /api/ {
         proxy_pass http://127.0.0.1:8015/;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Cookie \$http_cookie;
     }
 
     location / {
         proxy_pass http://127.0.0.1:3015;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 NGINX
