@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
-from app.core.exceptions import ForbiddenException, NotFoundException
+from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.core.response import paginate, success_response
 from app.models.client import Client
+from app.models.engagement import Engagement
 from app.models.enums import ActivityAction, EntityType, JobStatus, UserRole
 from app.models.job import Job
 from app.models.job_activity import JobActivity
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 def _job_to_response(job: Job, db: Session) -> dict:
     client = db.query(Client).filter(Client.id == job.client_id).first()
+    engagement = db.query(Engagement).filter(Engagement.id == job.engagement_id).first()
     recruiter = None
     if job.assigned_recruiter_id:
         recruiter = db.query(User).filter(User.id == job.assigned_recruiter_id).first()
@@ -33,6 +35,10 @@ def _job_to_response(job: Job, db: Session) -> dict:
         title=job.title,
         client_id=job.client_id,
         client_name=client.company_name if client else None,
+        engagement_id=job.engagement_id,
+        engagement_name=engagement.engagement_name if engagement else None,
+        service_model=engagement.service_model if engagement else None,
+        billing_model=engagement.billing_model if engagement else None,
         location=job.location,
         job_type=job.job_type,
         salary_min=job.salary_min,
@@ -47,7 +53,8 @@ def _job_to_response(job: Job, db: Session) -> dict:
         candidate_count=candidate_count,
         created_at=job.created_at,
         updated_at=job.updated_at,
-    ).model_dump()
+    ).model_dump(mode="json")
+
 
 
 def _list_job_activities(db: Session, job_id: int) -> list[dict]:
@@ -65,6 +72,7 @@ def list_jobs(
     search: str | None = None,
     status: JobStatus | None = None,
     client_id: int | None = None,
+    engagement_id: int | None = None,
     recruiter_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -86,6 +94,8 @@ def list_jobs(
         query = query.filter(Job.status == status)
     if client_id:
         query = query.filter(Job.client_id == client_id)
+    if engagement_id:
+        query = query.filter(Job.engagement_id == engagement_id)
     if date_from:
         query = query.filter(func.date(Job.created_at) >= date_from)
     if date_to:
@@ -106,21 +116,28 @@ def create_job(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    client = db.query(Client).filter(Client.id == payload.client_id).first()
-    if not client:
-        raise NotFoundException("Client not found")
+    engagement = db.query(Engagement).filter(Engagement.id == payload.engagement_id).first()
+    if not engagement:
+        raise BadRequestException(
+            "Engagement not found. Create an Engagement for this Client before creating a Job."
+        )
+
+    if payload.client_id is not None and payload.client_id != engagement.client_id:
+        raise BadRequestException("Selected Engagement does not belong to the selected Client.")
 
     if payload.assigned_recruiter_id:
         recruiter = db.query(User).filter(User.id == payload.assigned_recruiter_id).first()
         if not recruiter:
             raise NotFoundException("Recruiter not found")
 
-    job = Job(**payload.model_dump())
+    data = payload.model_dump(exclude={"client_id"})
+    data["client_id"] = engagement.client_id
+    job = Job(**data)
     db.add(job)
     db.flush()
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.CREATED,
-        f"Job '{job.title}' was created", admin.id,
+        f"Job '{job.title}' was created under engagement '{engagement.engagement_name}'", admin.id,
     )
     db.commit()
     db.refresh(job)
@@ -151,6 +168,15 @@ def update_job(
 ):
     job = get_job_or_404(db, job_id)
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "engagement_id" in update_data:
+        engagement = db.query(Engagement).filter(Engagement.id == update_data["engagement_id"]).first()
+        if not engagement:
+            raise BadRequestException(
+                "Engagement not found. Create an Engagement for this Client before updating the Job."
+            )
+        update_data["client_id"] = engagement.client_id
+
     for key, value in update_data.items():
         setattr(job, key, value)
 

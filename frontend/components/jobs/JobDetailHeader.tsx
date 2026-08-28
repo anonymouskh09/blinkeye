@@ -14,7 +14,8 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { JOB_STAGES } from "@/components/jobs/JobsListTable";
 import api from "@/lib/api";
-import type { Job, JobStatus, PipelineData } from "@/types";
+import type { ApiResponse, Engagement, Job, JobStatus, PaginatedData, PipelineData } from "@/types";
+import { BILLING_MODEL_LABELS, SERVICE_MODEL_LABELS } from "@/types";
 
 const STATUS_OPTIONS: { value: JobStatus; label: string }[] = [
   { value: "active", label: "Active" },
@@ -45,12 +46,21 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ title: job.title, location: job.location || "" });
+  const [editForm, setEditForm] = useState({
+    title: job.title,
+    location: job.location || "",
+    engagement_id: String(job.engagement_id || ""),
+  });
+  const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [newStatus, setNewStatus] = useState<JobStatus>(job.status);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setEditForm({ title: job.title, location: job.location || "" });
+    setEditForm({
+      title: job.title,
+      location: job.location || "",
+      engagement_id: String(job.engagement_id || ""),
+    });
     setNewStatus(job.status);
   }, [job]);
 
@@ -61,6 +71,16 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
+
+  useEffect(() => {
+    if (!editOpen || !job.client_id) return;
+    api
+      .get<ApiResponse<PaginatedData<Engagement>>>("/engagements", {
+        params: { client_id: job.client_id, page_size: 100 },
+      })
+      .then((res) => setEngagements(res.data.data.items || []))
+      .catch(() => setEngagements([]));
+  }, [editOpen, job.client_id]);
 
   const stages = pipeline?.stages;
   const inPipeline = stages
@@ -80,10 +100,18 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
   };
 
   const saveEdit = async () => {
-    await api.put(`/jobs/${job.id}`, editForm);
-    toast.success("Job updated");
-    setEditOpen(false);
-    onUpdate();
+    try {
+      await api.put(`/jobs/${job.id}`, {
+        title: editForm.title,
+        location: editForm.location,
+        engagement_id: editForm.engagement_id ? Number(editForm.engagement_id) : undefined,
+      });
+      toast.success("Job updated");
+      setEditOpen(false);
+      onUpdate();
+    } catch {
+      toast.error("Failed to update job");
+    }
   };
 
   const saveStatus = async () => {
@@ -108,11 +136,30 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
                 </span>
               </div>
 
-              {job.client_name && (
-                <Link href={`/clients/${job.client_id}`}
-                  className="inline-flex items-center gap-1 mt-1.5 text-sm text-primary hover:underline">
-                  {job.client_name} <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
+                {job.client_name && (
+                  <Link href={`/clients/${job.client_id}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline">
+                    Client: {job.client_name} <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                )}
+                {job.engagement_name && (
+                  <Link href={`/clients/${job.client_id}?tab=engagements`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline">
+                    Engagement: {job.engagement_name}
+                  </Link>
+                )}
+              </div>
+              {(job.service_model || job.billing_model) && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {job.service_model && (
+                    <span>Service: {SERVICE_MODEL_LABELS[job.service_model]}</span>
+                  )}
+                  {job.service_model && job.billing_model && <span className="mx-1.5">·</span>}
+                  {job.billing_model && (
+                    <span>Billing: {BILLING_MODEL_LABELS[job.billing_model]}</span>
+                  )}
+                </p>
               )}
 
               <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -188,6 +235,15 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
         <div className="space-y-3">
           <Input label="Position Name" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
           <Input label="Location" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
+          <Select
+            label="Engagement"
+            options={engagements.map((e) => ({
+              value: String(e.id),
+              label: `${e.engagement_name} (${e.status})`,
+            }))}
+            value={editForm.engagement_id}
+            onChange={(e) => setEditForm({ ...editForm, engagement_id: e.target.value })}
+          />
           <Button onClick={saveEdit}>Save Changes</Button>
         </div>
       </AnimatedModal>

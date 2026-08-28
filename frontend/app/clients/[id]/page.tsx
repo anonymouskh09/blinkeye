@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
 import {
   Briefcase, FileText, Activity, StickyNote, Paperclip, Users, UserPlus,
-  Contact, History, Plus, Download, Trash2, Upload,
+  Contact, History, Plus, Download, Trash2, Upload, Handshake,
 } from "lucide-react";
 import PageWrapper from "@/components/layout/PageWrapper";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import ClientDetailHeader from "@/components/clients/ClientDetailHeader";
 import ClientSummaryTab from "@/components/clients/ClientSummaryTab";
 import ClientJobsTab from "@/components/clients/ClientJobsTab";
+import ClientEngagementsTab from "@/components/clients/ClientEngagementsTab";
 import ClientNotesTab from "@/components/clients/ClientNotesTab";
 import ClientActivitiesTab from "@/components/clients/ClientActivitiesTab";
 import AnimatedModal from "@/components/ui/AnimatedModal";
@@ -25,11 +26,12 @@ import api from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 import type { ApiResponse, Client, ActivityLog, Note, User, ClientStage, PaginatedData } from "@/types";
 
-type Tab = "jobs" | "summary" | "activities" | "notes" | "attachments" | "team" | "guests" | "contacts" | "history";
+type Tab = "jobs" | "engagements" | "summary" | "activities" | "notes" | "attachments" | "team" | "guests" | "contacts" | "history";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string }[] = [
-  { id: "jobs", label: "Jobs", icon: Briefcase, countKey: "jobs" },
   { id: "summary", label: "Summary", icon: FileText },
+  { id: "engagements", label: "Engagements", icon: Handshake, countKey: "engagements" },
+  { id: "jobs", label: "Jobs", icon: Briefcase, countKey: "jobs" },
   { id: "activities", label: "Activities", icon: Activity, countKey: "activities" },
   { id: "notes", label: "Notes", icon: StickyNote, countKey: "notes" },
   { id: "attachments", label: "Attachments", icon: Paperclip, countKey: "attachments" },
@@ -40,13 +42,24 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string
 ];
 
 export default function ClientDetailPage() {
+  return (
+    <Suspense fallback={<PageWrapper><CardSkeleton /></PageWrapper>}>
+      <ClientDetailPageInner />
+    </Suspense>
+  );
+}
+
+function ClientDetailPageInner() {
   useRequireRole("admin");
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clientId = String(id);
+  const initialTab = (searchParams.get("tab") as Tab) || "summary";
+  const validInitialTab = TABS.some((t) => t.id === initialTab) ? initialTab : "summary";
 
   const [client, setClient] = useState<Client | null>(null);
-  const [tab, setTab] = useState<Tab>("summary");
+  const [tab, setTab] = useState<Tab>(validInitialTab);
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<ActivityLog[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -237,6 +250,15 @@ export default function ClientDetailPage() {
               onAddTeam={() => setAddTeamOpen(true)}
               onAddGuest={() => setAddGuestOpen(true)}
               onAddContact={() => setAddContactOpen(true)}
+            />
+          )}
+
+          {tab === "engagements" && (
+            <ClientEngagementsTab
+              clientId={clientId}
+              engagements={client.engagements || []}
+              users={users}
+              onRefresh={fetchClient}
             />
           )}
 

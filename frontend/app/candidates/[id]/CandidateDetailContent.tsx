@@ -7,13 +7,15 @@ import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
 import {
   FileText, Mail, Share2, Briefcase, Sparkles, Activity, StickyNote,
-  Paperclip, History, Plus,
+  Paperclip, History, Plus, Send,
 } from "lucide-react";
 import PageWrapper from "@/components/layout/PageWrapper";
 import EntityActivitiesTab from "@/components/activities/EntityActivitiesTab";
 import CandidateDetailHeader from "@/components/candidates/CandidateDetailHeader";
 import CandidateSummaryTab from "@/components/candidates/CandidateSummaryTab";
 import CandidateNotesTab from "@/components/candidates/CandidateNotesTab";
+import SubmitCandidateModal from "@/components/submissions/SubmitCandidateModal";
+import SubmissionDetailModal from "@/components/submissions/SubmissionDetailModal";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -24,7 +26,8 @@ import { syncCompanyToExperiences } from "@/lib/candidateProfileSync";
 import { getCandidateSocialLinks } from "@/lib/socialLinks";
 import { RESUME_PROCESS_STEPS, runWithProcessingSteps } from "@/lib/resumeProcessing";
 import { cn } from "@/lib/utils";
-import type { ApiResponse, Candidate, ActivityLog, Note, Job, PaginatedData, User, ScheduledActivity } from "@/types";
+import type { ApiResponse, Candidate, ActivityLog, Note, Job, PaginatedData, User, ScheduledActivity, Submission } from "@/types";
+import { PIPELINE_STAGE_LABELS, SUBMIT_ELIGIBLE_STAGES } from "@/types";
 
 const CandidateResumeTab = dynamic(() => import("@/components/candidates/CandidateResumeTab"), {
   ssr: false,
@@ -72,6 +75,8 @@ export default function CandidateDetailContent() {
   const [tab, setTab] = useState<Tab>("summary");
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState("");
+  const [submitAssignment, setSubmitAssignment] = useState<{ id: number; jobId: number } | null>(null);
+  const [viewSubmissionId, setViewSubmissionId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [resumeVersion, setResumeVersion] = useState(0);
   const [processStep, setProcessStep] = useState(0);
@@ -249,13 +254,58 @@ export default function CandidateDetailContent() {
 
           {tab === "jobs" && (
             <div className="bg-white border border-gray-200 rounded-lg p-5 max-w-3xl">
+              <p className="text-xs text-gray-500 mb-3">
+                Pipeline stage is per job (CandidateJob). Changing one job does not affect another.
+              </p>
               <Button size="sm" className="mb-4" onClick={() => setAssignOpen(true)}><Plus className="h-4 w-4 mr-1" /> Assign Job</Button>
-              {(candidate.assignments || []).map((a) => (
-                <div key={a.id} className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <div><p className="font-medium text-sm text-primary">{a.job_title}</p><p className="text-xs text-gray-500">{a.client_name}</p></div>
-                  <span className="text-xs bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-lg font-medium uppercase">{a.status.replace("_", " ")}</span>
-                </div>
-              ))}
+              {(candidate.assignments || []).map((a) => {
+                const canSubmit = SUBMIT_ELIGIBLE_STAGES.includes(a.status);
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-3 py-3 border-b border-gray-100">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-primary truncate">{a.job_title}</p>
+                      <p className="text-xs text-gray-500">{a.client_name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-lg font-medium uppercase">
+                        {PIPELINE_STAGE_LABELS[a.status] || a.status.replace("_", " ")}
+                      </span>
+                      {canSubmit && a.status === "shortlisted" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSubmitAssignment({ id: a.id, jobId: a.job_id })}
+                        >
+                          <Send className="h-3.5 w-3.5 mr-1" /> Submit
+                        </Button>
+                      )}
+                      {["phone_screening", "interview_scheduled", "interview_completed", "client_review", "offer_sent", "hired"].includes(a.status) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            try {
+                              const res = await api.get<ApiResponse<PaginatedData<Submission>>>("/submissions", {
+                                params: { candidate_job_assignment_id: a.id, page_size: 1 },
+                              });
+                              const first = res.data.data.items?.[0];
+                              if (first) {
+                                setViewSubmissionId(first.id);
+                              } else {
+                                toast.error("No submission found for this job");
+                              }
+                            } catch {
+                              toast.error("Failed to load submission");
+                            }
+                          }}
+                        >
+                          View Submission
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               {!candidate.assignments?.length && <p className="text-sm text-gray-400">Not assigned to any jobs</p>}
             </div>
           )}
@@ -320,6 +370,24 @@ export default function CandidateDetailContent() {
           <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
         </div>
       </Modal>
+
+      {submitAssignment && candidate && (
+        <SubmitCandidateModal
+          open={!!submitAssignment}
+          onClose={() => setSubmitAssignment(null)}
+          assignmentId={submitAssignment.id}
+          candidateId={candidate.id}
+          jobId={submitAssignment.jobId}
+          onSuccess={() => fetchAll()}
+        />
+      )}
+
+      <SubmissionDetailModal
+        open={!!viewSubmissionId}
+        onClose={() => setViewSubmissionId(null)}
+        submissionId={viewSubmissionId}
+        onUpdated={() => fetchAll()}
+      />
     </PageWrapper>
   );
 }

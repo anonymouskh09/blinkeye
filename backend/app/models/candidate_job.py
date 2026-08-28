@@ -26,3 +26,4 @@ class CandidateJobAssignment(Base, TimestampMixin):
     job = relationship("Job", back_populates="candidate_assignments")
     assigned_recruiter = relationship("User", foreign_keys=[assigned_recruiter_id])
     interviews = relationship("Interview", back_populates="candidate_job")
+    submissions = relationship("Submission", back_populates="assignment")

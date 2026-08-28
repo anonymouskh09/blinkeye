@@ -11,6 +11,7 @@ from app.models.client_attachment import ClientAttachment
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
 from app.models.client_team import ClientTeamMember
+from app.models.engagement import Engagement
 from app.models.enums import ActivityAction, ClientStage, ClientStatus, EntityType
 from app.models.job import Job
 from app.models.user import User
@@ -31,6 +32,7 @@ from app.schemas.client import (
     ClientUpdate,
 )
 from app.schemas.job import JobSummaryResponse
+from app.routers.engagements import _engagement_to_response
 from app.services.activity_service import log_activity
 from app.services.client_file_service import (
     delete_attachment_file,
@@ -94,6 +96,7 @@ def _client_detail(client: Client, db: Session) -> dict:
     for job in jobs:
         candidate_count = len(job.candidate_assignments) if job.candidate_assignments else 0
         recruiter = db.query(User).filter(User.id == job.assigned_recruiter_id).first() if job.assigned_recruiter_id else None
+        engagement = db.query(Engagement).filter(Engagement.id == job.engagement_id).first() if job.engagement_id else None
         job_items.append(
             JobSummaryResponse(
                 id=job.id,
@@ -107,6 +110,8 @@ def _client_detail(client: Client, db: Session) -> dict:
                 number_of_positions=job.number_of_positions,
                 assigned_recruiter_id=job.assigned_recruiter_id,
                 assigned_recruiter_name=recruiter.name if recruiter else None,
+                engagement_id=job.engagement_id,
+                engagement_name=engagement.engagement_name if engagement else None,
             ).model_dump()
         )
 
@@ -176,6 +181,10 @@ def _client_detail(client: Client, db: Session) -> dict:
         )
 
     data["jobs"] = job_items
+    data["engagements"] = [
+        _engagement_to_response(e, db)
+        for e in db.query(Engagement).filter(Engagement.client_id == client.id).order_by(Engagement.created_at.desc()).all()
+    ]
     data["contacts"] = contacts
     data["team"] = team
     data["guests"] = guests

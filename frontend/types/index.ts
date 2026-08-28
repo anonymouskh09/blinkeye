@@ -110,6 +110,7 @@ export interface Client {
   created_at: string;
   updated_at: string;
   jobs?: JobSummary[];
+  engagements?: Engagement[];
   contacts?: ClientContact[];
   team?: ClientTeamMember[];
   guests?: ClientGuest[];
@@ -169,6 +170,8 @@ export interface JobSummary {
   number_of_positions?: number;
   assigned_recruiter_id?: number;
   assigned_recruiter_name?: string;
+  engagement_id?: number;
+  engagement_name?: string;
 }
 
 export interface Job {
@@ -176,6 +179,10 @@ export interface Job {
   title: string;
   client_id: number;
   client_name?: string;
+  engagement_id: number;
+  engagement_name?: string;
+  service_model?: ServiceModel;
+  billing_model?: BillingModel;
   location?: string;
   job_type: JobType;
   salary_min?: number;
@@ -192,6 +199,89 @@ export interface Job {
   created_at: string;
   updated_at: string;
 }
+
+export type EngagementStatus = "prospect" | "active" | "paused" | "completed" | "cancelled";
+export type ServiceModel =
+  | "sourcing_only"
+  | "sourcing_outreach"
+  | "sourcing_outreach_qualification"
+  | "full_cycle"
+  | "custom";
+export type BillingModel = "hourly" | "monthly_retainer" | "success_based" | "hybrid";
+
+export interface Engagement {
+  id: number;
+  client_id: number;
+  client_name?: string;
+  engagement_name: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  status: EngagementStatus;
+  service_model: ServiceModel;
+  billing_model: BillingModel;
+  currency: string;
+  rate?: number | string | null;
+  hourly_rate?: number | string | null;
+  billing_period?: string | null;
+  monthly_fee?: number | string | null;
+  included_hours?: number | null;
+  additional_hourly_rate?: number | string | null;
+  placement_fee_percent?: number | string | null;
+  flat_placement_fee?: number | string | null;
+  guarantee_period_days?: number | null;
+  payment_terms?: string | null;
+  contract_reference?: string | null;
+  notes?: string | null;
+  sla?: string | null;
+  target_kpis?: string | null;
+  custom_responsibilities?: string[] | null;
+  assigned_recruiter_id?: number | null;
+  assigned_recruiter_name?: string | null;
+  job_count: number;
+  jobs?: {
+    id: number;
+    title: string;
+    status: string;
+    location?: string;
+    candidate_count: number;
+    assigned_recruiter_name?: string;
+    created_at: string;
+  }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const SERVICE_MODEL_LABELS: Record<ServiceModel, string> = {
+  sourcing_only: "Sourcing Only",
+  sourcing_outreach: "Sourcing + Outreach",
+  sourcing_outreach_qualification: "Sourcing + Outreach + Qualification",
+  full_cycle: "Full Cycle",
+  custom: "Custom",
+};
+
+export const BILLING_MODEL_LABELS: Record<BillingModel, string> = {
+  hourly: "Hourly",
+  monthly_retainer: "Monthly Retainer",
+  success_based: "Success Based",
+  hybrid: "Hybrid",
+};
+
+export const ENGAGEMENT_STATUS_LABELS: Record<EngagementStatus, string> = {
+  prospect: "Prospect",
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+export const CUSTOM_RESPONSIBILITY_OPTIONS = [
+  "Sourcing",
+  "Outreach",
+  "Screening",
+  "Interview coordination",
+  "Offer management",
+] as const;
+
 
 export interface CandidateExperience {
   title: string;
@@ -499,14 +589,101 @@ export const PIPELINE_STAGES: PipelineStage[] = [
 export const PIPELINE_STAGE_LABELS: Record<PipelineStage, string> = {
   applied: "New Candidates",
   cv_reviewed: "Interested",
-  shortlisted: "Shortlisted",
-  phone_screening: "Client Submission",
-  interview_scheduled: "Client Interview",
+  shortlisted: "Qualified",
+  phone_screening: "Submitted",
+  interview_scheduled: "Interview",
   interview_completed: "Interview Completed",
   client_review: "Client Review",
   offer_sent: "Offered",
   hired: "Hired",
   rejected: "Dropped",
+};
+
+/** Stages from which "Submit Candidate" is allowed (Qualified+) */
+export const SUBMIT_ELIGIBLE_STAGES: PipelineStage[] = [
+  "shortlisted",
+  "phone_screening",
+  "interview_scheduled",
+  "interview_completed",
+  "client_review",
+  "offer_sent",
+];
+
+export type SubmissionStatus =
+  | "submitted"
+  | "client_reviewing"
+  | "client_interested"
+  | "rejected"
+  | "interview_requested"
+  | "interview_scheduled"
+  | "offer"
+  | "placed";
+
+export type ClientFeedbackType =
+  | "interested"
+  | "rejected"
+  | "interview_requested"
+  | "more_information_requested"
+  | "general_feedback";
+
+export interface ClientFeedback {
+  id: number;
+  submission_id: number;
+  feedback_type: ClientFeedbackType;
+  feedback_text?: string | null;
+  rating?: number | null;
+  rejection_reason?: string | null;
+  notes?: string | null;
+  created_by: number;
+  created_by_name?: string | null;
+  feedback_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Submission {
+  id: number;
+  candidate_job_assignment_id: number;
+  candidate_id: number;
+  candidate_name?: string | null;
+  job_id: number;
+  job_title?: string | null;
+  client_id: number;
+  client_name?: string | null;
+  engagement_id?: number | null;
+  engagement_name?: string | null;
+  recruiter_id: number;
+  recruiter_name?: string | null;
+  submission_date: string;
+  resume_file_path?: string | null;
+  candidate_summary?: string | null;
+  expected_compensation?: string | null;
+  availability?: string | null;
+  recruiter_notes?: string | null;
+  status: SubmissionStatus;
+  assignment_status?: string | null;
+  feedback?: ClientFeedback[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
+  submitted: "Submitted",
+  client_reviewing: "Client Reviewing",
+  client_interested: "Client Interested",
+  rejected: "Rejected",
+  interview_requested: "Interview Requested",
+  interview_scheduled: "Interview Scheduled",
+  offer: "Offer",
+  placed: "Placed",
+};
+
+export const CLIENT_FEEDBACK_TYPE_LABELS: Record<ClientFeedbackType, string> = {
+  interested: "Interested",
+  rejected: "Rejected",
+  interview_requested: "Interview Requested",
+  more_information_requested: "More Information Requested",
+  general_feedback: "General Feedback",
 };
 
 /** Manatal-style divider after this stage index (0-based) */

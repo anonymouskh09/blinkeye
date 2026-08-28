@@ -10,6 +10,7 @@ from app.models.job_activity import JobActivity
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
 from app.models.client_team import ClientTeamMember
+from app.models.engagement import Engagement
 from app.models.extension_auth import ExtensionAuthCode, ExtensionToken
 from app.models.interview import Interview
 from app.models.job import Job
@@ -21,6 +22,7 @@ from app.models.outreach import (
     OutreachSequenceStep,
     UserEmailAccount,
 )
+from app.models.submission import ClientFeedback, Submission
 from app.models.user import User
 
 __all__ = [
@@ -29,6 +31,8 @@ __all__ = [
     "ClientContact",
     "ClientTeamMember",
     "ClientGuest",
+    "ClientAttachment",
+    "Engagement",
     "Job",
     "Candidate",
     "CandidateActivity",
@@ -47,4 +51,6 @@ __all__ = [
     "OutreachSequenceStep",
     "OutreachEnrollment",
     "OutreachEmailLog",
+    "Submission",
+    "ClientFeedback",
 ]

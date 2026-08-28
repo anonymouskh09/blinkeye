@@ -34,6 +34,7 @@ class Client(Base, TimestampMixin):
 
     owner = relationship("User", foreign_keys=[owner_id])
     jobs = relationship("Job", back_populates="client")
+    engagements = relationship("Engagement", back_populates="client", cascade="all, delete-orphan")
     contacts = relationship("ClientContact", back_populates="client", cascade="all, delete-orphan")
     team_members = relationship("ClientTeamMember", back_populates="client", cascade="all, delete-orphan")
     guests = relationship("ClientGuest", back_populates="client", cascade="all, delete-orphan")

@@ -225,7 +225,10 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
         </dl>
       </ProfileSectionCard>
 
-      <ProfileSectionCard title="Status">
+      <ProfileSectionCard title="Profile status">
+        <p className="text-[11px] text-gray-500 mb-2 px-1">
+          Global CRM label only — job pipeline stages live on each CandidateJob (Jobs tab).
+        </p>
         <div className="flex flex-wrap gap-2">
           {STATUSES.map(({ id, label }) => {
             const active = (candidate.candidate_status || "new") === id;

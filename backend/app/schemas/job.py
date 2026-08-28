@@ -2,12 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.enums import JobStatus, JobType
+from app.models.enums import BillingModel, JobStatus, JobType, ServiceModel
 
 
 class JobBase(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    client_id: int
+    engagement_id: int
     location: str | None = None
     job_type: JobType = JobType.FULL_TIME
     salary_min: int | None = None
@@ -28,12 +28,13 @@ class JobBase(BaseModel):
 
 
 class JobCreate(JobBase):
-    pass
+    # Optional for UX; server derives authoritative client_id from engagement.
+    client_id: int | None = None
 
 
 class JobUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
-    client_id: int | None = None
+    engagement_id: int | None = None
     location: str | None = None
     job_type: JobType | None = None
     salary_min: int | None = None
@@ -53,6 +54,10 @@ class JobResponse(BaseModel):
     title: str
     client_id: int
     client_name: str | None = None
+    engagement_id: int
+    engagement_name: str | None = None
+    service_model: ServiceModel | None = None
+    billing_model: BillingModel | None = None
     location: str | None
     job_type: JobType
     salary_min: int | None
@@ -83,3 +88,5 @@ class JobSummaryResponse(BaseModel):
     number_of_positions: int = 1
     assigned_recruiter_id: int | None = None
     assigned_recruiter_name: str | None = None
+    engagement_id: int | None = None
+    engagement_name: str | None = None

@@ -6,13 +6,14 @@ import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
 import {
   Users, FileText, Activity, StickyNote, Paperclip, Sparkles, Search, BarChart3,
-  Briefcase, History, Upload,
+  Briefcase, History, Upload, Send,
 } from "lucide-react";
 import PageWrapper from "@/components/layout/PageWrapper";
 import EntityActivitiesTab from "@/components/activities/EntityActivitiesTab";
 import JobDetailHeader from "@/components/jobs/JobDetailHeader";
 import JobSummaryTab from "@/components/jobs/JobSummaryTab";
 import JobCandidatesTab from "@/components/jobs/JobCandidatesTab";
+import JobSubmissionsTab from "@/components/submissions/JobSubmissionsTab";
 import JobNotesTab from "@/components/jobs/JobNotesTab";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import { CardSkeleton } from "@/components/ui/Skeleton";
@@ -20,10 +21,11 @@ import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ApiResponse, Job, ActivityLog, Note, User, PaginatedData, PipelineData, ScheduledActivity } from "@/types";
 
-type Tab = "candidates" | "summary" | "team" | "ai" | "activities" | "notes" | "attachments" | "sourcing" | "reports" | "history";
+type Tab = "candidates" | "submissions" | "summary" | "team" | "ai" | "activities" | "notes" | "attachments" | "sourcing" | "reports" | "history";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string }[] = [
   { id: "candidates", label: "Candidates", icon: Briefcase, countKey: "candidates" },
+  { id: "submissions", label: "Submissions", icon: Send },
   { id: "summary", label: "Summary", icon: FileText },
   { id: "team", label: "Team", icon: Users, countKey: "team" },
   { id: "ai", label: "AI Recommendations", icon: Sparkles },
@@ -160,6 +162,7 @@ export default function JobDetailPageContent() {
 
         <div className={cn("min-h-[400px]", tab === "candidates" ? "p-0 bg-surface-muted" : "p-6 bg-surface-muted/50")}>
           {tab === "candidates" && <JobCandidatesTab jobId={jobId} />}
+          {tab === "submissions" && <JobSubmissionsTab jobId={jobId} />}
 
           {tab === "summary" && (
             <JobSummaryTab job={job} users={users} onUpdate={refreshAll} />

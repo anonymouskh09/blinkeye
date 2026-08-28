@@ -71,6 +71,8 @@ def update_pipeline_status(
 
     require_job_access(current_user, assignment.job)
     old_status = assignment.status.value
+    # CandidateJobAssignment.status is the sole pipeline source of truth.
+    # Do NOT write Candidate.candidate_status (legacy global CRM field).
     assignment.status = payload.status
 
     candidate = assignment.candidate

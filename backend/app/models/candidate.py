@@ -34,9 +34,19 @@ class Candidate(Base, TimestampMixin):
     experiences: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
     educations: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
     skill_levels: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
-    candidate_status: Mapped[str] = mapped_column(String(20), nullable=False, default=CandidateStatus.NEW.value)
+    candidate_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=CandidateStatus.NEW.value,
+        comment="Legacy global CRM status only — not job pipeline truth",
+    )
     candidate_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    assigned_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True, index=True)
+    assigned_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("jobs.id"),
+        nullable=True,
+        index=True,
+        comment="Optional primary-job pointer; pipeline truth is CandidateJobAssignment",
+    )
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_currency: Mapped[str | None] = mapped_column(String(10), nullable=True, default="USD")

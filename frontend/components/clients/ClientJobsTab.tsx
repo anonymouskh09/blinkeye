@@ -25,6 +25,8 @@ export default function ClientJobsTab({ client, jobs, onRefresh }: Props) {
     assigned_recruiter_name: j.assigned_recruiter_name,
     client_id: client.id,
     client_name: client.company_name,
+    engagement_id: j.engagement_id ?? 0,
+    engagement_name: j.engagement_name,
     job_type: "full-time",
   }));
 

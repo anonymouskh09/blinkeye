@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/clients/ClientAvatar";
 import { jobRef } from "@/components/jobs/JobDetailHeader";
 import api from "@/lib/api";
 import type { Job, User } from "@/types";
+import { BILLING_MODEL_LABELS, SERVICE_MODEL_LABELS } from "@/types";
 
 function SummaryRow({
   label, value, onSave, type = "text", readonly,
@@ -167,6 +168,20 @@ export default function JobSummaryTab({ job, users, onUpdate }: Props) {
           </div>
           <dl>
             <SummaryRow label="Job Reference" value={jobRef(job.id)} onSave={async () => {}} readonly />
+            <SummaryRow label="Client" value={job.client_name || "—"} onSave={async () => {}} readonly />
+            <SummaryRow label="Engagement" value={job.engagement_name || "—"} onSave={async () => {}} readonly />
+            <SummaryRow
+              label="Service Model"
+              value={job.service_model ? SERVICE_MODEL_LABELS[job.service_model] : "—"}
+              onSave={async () => {}}
+              readonly
+            />
+            <SummaryRow
+              label="Billing Model"
+              value={job.billing_model ? BILLING_MODEL_LABELS[job.billing_model] : "—"}
+              onSave={async () => {}}
+              readonly
+            />
             <SummaryRow label="Position Name" value={job.title} onSave={(v) => save("title", v)} />
             <SummaryRow label="Job Location" value={job.location || ""} onSave={(v) => save("location", v)} />
             <SummaryRow label="Remote" value={job.location?.toLowerCase().includes("remote") ? "Yes" : "No"} onSave={async () => {}} readonly />

@@ -12,6 +12,7 @@ class Job(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, index=True)
+    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"), nullable=False, index=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     job_type: Mapped[JobType] = mapped_column(
         pg_enum(JobType, name="job_type"), nullable=False, default=JobType.FULL_TIME
@@ -30,6 +31,7 @@ class Job(Base, TimestampMixin):
     )
 
     client = relationship("Client", back_populates="jobs")
+    engagement = relationship("Engagement", back_populates="jobs")
     assigned_recruiter = relationship("User", back_populates="assigned_jobs", foreign_keys=[assigned_recruiter_id])
     candidate_assignments = relationship("CandidateJobAssignment", back_populates="job")
     activities = relationship("JobActivity", back_populates="job", cascade="all, delete-orphan")
