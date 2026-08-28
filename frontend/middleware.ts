@@ -4,11 +4,14 @@ import type { NextRequest } from "next/server";
 const publicPaths = ["/login"];
 
 function redirectPath(request: NextRequest, path: string) {
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const proto = request.headers.get("x-forwarded-proto") ?? "https";
-  if (host) {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
+  const isLocal = host.includes("localhost") || host.startsWith("127.0.0.1");
+
+  if (host && !isLocal) {
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
     return NextResponse.redirect(`${proto}://${host}${path}`);
   }
+
   const url = request.nextUrl.clone();
   url.pathname = path;
   url.search = "";
