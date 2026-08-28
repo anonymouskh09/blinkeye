@@ -504,9 +504,9 @@ export default function ClientsPage() {
                         <td className="px-3 py-3 whitespace-nowrap overflow-hidden text-ellipsis">
                           {c.team && c.team.length > 0 ? (
                             <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
-                              <UserAvatar name={c.team[0].name || c.team[0].user_name} size="sm" />
+                              <UserAvatar name={c.team[0].name} size="sm" />
                               <span className="text-slate-700 font-medium whitespace-nowrap truncate">
-                                {c.team.map((t) => t.name || t.user_name).join(", ")}
+                                {c.team.map((t) => t.name).join(", ")}
                               </span>
                             </div>
                           ) : c.team_member_name ? (
