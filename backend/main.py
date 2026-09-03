@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import AppException, app_exception_handler, generic_exception_handler, http_exception_handler
 from app.core.response import success_response
-from app.routers import auth, candidates, clients, dashboard, engagements, extension, extension_management, folders, gmail, interviews, jobs, notes, outreach, pipeline, recruitment_center, reports, submissions, users
+from app.routers import auth, billing, candidates, clients, dashboard, engagements, extension, extension_management, folders, gmail, interviews, jobs, notes, offers, outreach, pipeline, placements, recruitment_center, reports, submissions, timesheets, users
 from app.services.outreach_scheduler_service import run_outreach_scheduler
 
 from app.core.database import Base, engine
@@ -60,6 +60,10 @@ app.include_router(candidates.router)
 app.include_router(folders.router)
 app.include_router(pipeline.router)
 app.include_router(submissions.router)
+app.include_router(offers.router)
+app.include_router(placements.router)
+app.include_router(billing.router)
+app.include_router(timesheets.router)
 app.include_router(interviews.router)
 app.include_router(notes.router)
 app.include_router(dashboard.router)

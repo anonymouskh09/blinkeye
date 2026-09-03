@@ -492,6 +492,23 @@ export default function ClientEngagementsTab({ clientId, engagements, users, onR
                 />
               </div>
             )}
+
+            {form.billing_model === "fixed" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <Input
+                  label="Fixed Project Fee"
+                  type="number"
+                  value={form.rate}
+                  onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                />
+                <Input
+                  label="Payment Terms"
+                  value={form.payment_terms}
+                  onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                  placeholder="e.g. Net 30"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-gray-100 pt-4">
@@ -640,6 +657,17 @@ export default function ClientEngagementsTab({ clientId, engagements, users, onR
                 )}
               </div>
             )}
+            <div className="flex flex-wrap gap-3 text-sm border rounded-lg p-3 bg-slate-50">
+              <Link href={`/invoices`} className="text-primary hover:underline">
+                View Invoices
+              </Link>
+              <Link href={`/revenue`} className="text-primary hover:underline">
+                View Revenue
+              </Link>
+              <Link href={`/placements`} className="text-primary hover:underline">
+                View Placements
+              </Link>
+            </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-gray-900">Jobs under this Engagement</p>

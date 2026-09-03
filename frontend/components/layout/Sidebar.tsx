@@ -8,7 +8,7 @@ import { useSidebar } from "@/lib/sidebar-context";
 import {
   Home, Building2, Briefcase, UserCheck, LogOut,
   Users, CalendarDays, BarChart3, GitBranch, BadgeCheck, Contact, MessagesSquare, Send,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, FileText, DollarSign, Clock,
 } from "lucide-react";
 
 const ACCENT = "#1F574A";
@@ -28,6 +28,7 @@ const mainNav = [
 const recruitmentCenter = [
   { href: "/matches", label: "Matches", icon: GitBranch },
   { href: "/placements", label: "Placements", icon: BadgeCheck },
+  { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/contacts", label: "Guests", icon: Contact, adminOnly: true },
   { href: "/activities", label: "Activities", icon: CalendarDays },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare },
@@ -35,6 +36,8 @@ const recruitmentCenter = [
 ];
 
 const adminExtra = [
+  { href: "/invoices", label: "Invoices", icon: FileText, adminOnly: true },
+  { href: "/revenue", label: "Revenue", icon: DollarSign, adminOnly: true },
   { href: "/reports", label: "Reports", icon: BarChart3, adminOnly: true },
   { href: "/team", label: "Team", icon: Users, adminOnly: true },
 ];

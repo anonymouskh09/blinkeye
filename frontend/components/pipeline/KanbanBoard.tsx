@@ -16,9 +16,16 @@ interface KanbanBoardProps {
   onUpdate: () => void;
   variant?: "default" | "manatal";
   onSubmitCandidate?: (card: PipelineCard) => void;
+  onCreateOffer?: (card: PipelineCard) => void;
 }
 
-export default function KanbanBoard({ data, onUpdate, variant = "default", onSubmitCandidate }: KanbanBoardProps) {
+export default function KanbanBoard({
+  data,
+  onUpdate,
+  variant = "default",
+  onSubmitCandidate,
+  onCreateOffer,
+}: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<PipelineCard | null>(null);
   const [stages, setStages] = useState(data.stages);
   useEffect(() => { setStages(data.stages); }, [data]);
@@ -77,6 +84,7 @@ export default function KanbanBoard({ data, onUpdate, variant = "default", onSub
                 cards={stages[stage] || []}
                 variant={variant}
                 onSubmitCandidate={onSubmitCandidate}
+                onCreateOffer={onCreateOffer}
               />
             </div>
           ))}

@@ -11,9 +11,16 @@ interface KanbanColumnProps {
   cards: PipelineCard[];
   variant?: "default" | "manatal";
   onSubmitCandidate?: (card: PipelineCard) => void;
+  onCreateOffer?: (card: PipelineCard) => void;
 }
 
-export default function KanbanColumn({ stage, cards, variant = "default", onSubmitCandidate }: KanbanColumnProps) {
+export default function KanbanColumn({
+  stage,
+  cards,
+  variant = "default",
+  onSubmitCandidate,
+  onCreateOffer,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const isSuccess = PIPELINE_SUCCESS_STAGES.includes(stage);
 
@@ -38,6 +45,7 @@ export default function KanbanColumn({ stage, cards, variant = "default", onSubm
               card={card}
               variant="manatal"
               onSubmitCandidate={onSubmitCandidate}
+              onCreateOffer={onCreateOffer}
             />
           ))}
         </div>
@@ -58,7 +66,12 @@ export default function KanbanColumn({ stage, cards, variant = "default", onSubm
       </div>
       <div className="space-y-2 min-h-[100px]">
         {cards.map((card) => (
-          <CandidateCard key={card.assignment_id} card={card} onSubmitCandidate={onSubmitCandidate} />
+          <CandidateCard
+            key={card.assignment_id}
+            card={card}
+            onSubmitCandidate={onSubmitCandidate}
+            onCreateOffer={onCreateOffer}
+          />
         ))}
       </div>
     </div>

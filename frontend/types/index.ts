@@ -207,7 +207,7 @@ export type ServiceModel =
   | "sourcing_outreach_qualification"
   | "full_cycle"
   | "custom";
-export type BillingModel = "hourly" | "monthly_retainer" | "success_based" | "hybrid";
+export type BillingModel = "hourly" | "monthly_retainer" | "success_based" | "hybrid" | "fixed";
 
 export interface Engagement {
   id: number;
@@ -264,6 +264,7 @@ export const BILLING_MODEL_LABELS: Record<BillingModel, string> = {
   monthly_retainer: "Monthly Retainer",
   success_based: "Success Based",
   hybrid: "Hybrid",
+  fixed: "Fixed",
 };
 
 export const ENGAGEMENT_STATUS_LABELS: Record<EngagementStatus, string> = {
@@ -704,15 +705,203 @@ export interface MatchItem {
 }
 
 export interface PlacementItem {
-  assignment_id: number;
+  assignment_id?: number;
+  id?: number;
   candidate_id: number;
   candidate_name: string;
   job_id: number;
   job_title: string;
+  client_id?: number;
   client_name?: string;
+  engagement_id?: number;
+  engagement_name?: string;
+  billing_model?: BillingModel | string;
+  recruiter_id?: number;
   recruiter_name?: string;
+  offer_id?: number | null;
+  placement_date?: string;
+  start_date?: string | null;
+  salary?: number | string;
+  currency?: string;
+  fee_percentage?: number | string | null;
+  flat_fee?: number | string | null;
+  placement_fee?: number | string;
+  guarantee_period_days?: number | null;
+  payment_status?: string;
+  status?: string;
+  billable_item_id?: number | null;
+  invoice_id?: number | null;
   placed_at?: string;
+  created_at?: string;
 }
+
+export type OfferStatus = "draft" | "sent" | "accepted" | "rejected" | "withdrawn" | "expired";
+
+export interface Offer {
+  id: number;
+  candidate_id: number;
+  candidate_name?: string;
+  job_id: number;
+  job_title?: string;
+  client_id: number;
+  client_name?: string;
+  engagement_id?: number | null;
+  engagement_name?: string;
+  submission_id?: number | null;
+  recruiter_id: number;
+  recruiter_name?: string;
+  salary: number | string;
+  currency: string;
+  start_date?: string | null;
+  bonus?: number | string | null;
+  equity?: string | null;
+  offer_date: string;
+  acceptance_date?: string | null;
+  rejection_date?: string | null;
+  status: OfferStatus | string;
+  notes?: string | null;
+  placement_id?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type BillableItemType = "hourly" | "retainer" | "success_fee" | "fixed" | "other";
+export type BillableItemStatus = "draft" | "approved" | "invoiced" | "void";
+
+export interface BillableItem {
+  id: number;
+  client_id: number;
+  client_name?: string;
+  engagement_id: number;
+  engagement_name?: string;
+  job_id?: number | null;
+  job_title?: string;
+  recruiter_id?: number | null;
+  recruiter_name?: string;
+  placement_id?: number | null;
+  billable_type: BillableItemType | string;
+  description: string;
+  quantity: number | string;
+  unit_rate: number | string;
+  amount: number | string;
+  currency: string;
+  billing_period_start?: string | null;
+  billing_period_end?: string | null;
+  source_type: string;
+  status: BillableItemStatus | string;
+  notes?: string | null;
+  invoice_line_item_id?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceLineItem {
+  id: number;
+  billable_item_id?: number | null;
+  description: string;
+  quantity: number | string;
+  unit_rate: number | string;
+  amount: number | string;
+  billable_type: string;
+  job_id?: number | null;
+  recruiter_id?: number | null;
+  placement_id?: number | null;
+}
+
+export interface InvoicePayment {
+  id: number;
+  invoice_id: number;
+  amount: number | string;
+  currency: string;
+  payment_date: string;
+  payment_method: string;
+  reference?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface Invoice {
+  id: number;
+  invoice_number: string;
+  client_id: number;
+  client_name?: string;
+  engagement_id?: number | null;
+  engagement_name?: string;
+  issue_date: string;
+  due_date?: string | null;
+  currency: string;
+  subtotal: number | string;
+  tax: number | string;
+  total: number | string;
+  amount_paid: number | string;
+  amount_outstanding: number | string;
+  status: string;
+  payment_status: string;
+  notes?: string | null;
+  line_items: InvoiceLineItem[];
+  payments: InvoicePayment[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RevenueSummary {
+  expected: number | string;
+  invoiced: number | string;
+  paid: number | string;
+  outstanding: number | string;
+  currency?: string;
+}
+
+export interface RevenueBreakdownItem {
+  key: string;
+  label: string;
+  expected: number | string;
+  invoiced: number | string;
+  paid: number | string;
+  outstanding: number | string;
+}
+
+export interface RevenueReport {
+  summary: RevenueSummary;
+  by_client: RevenueBreakdownItem[];
+  by_engagement: RevenueBreakdownItem[];
+  by_job: RevenueBreakdownItem[];
+  by_recruiter: RevenueBreakdownItem[];
+  by_revenue_type: RevenueBreakdownItem[];
+  by_billing_model: RevenueBreakdownItem[];
+}
+
+export type TimesheetStatus = "pending" | "submitted" | "approved" | "rejected";
+
+export interface TimesheetEntry {
+  id: number;
+  client_id: number;
+  client_name?: string | null;
+  engagement_id: number;
+  engagement_name?: string | null;
+  job_id?: number | null;
+  job_title?: string | null;
+  recruiter_id: number;
+  recruiter_name?: string | null;
+  work_date: string;
+  hours: number | string;
+  hourly_rate?: number | string | null;
+  description?: string | null;
+  status: TimesheetStatus | string;
+  billable_item_id?: number | null;
+  approved_at?: string | null;
+  approved_by?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const BILLABLE_TYPE_LABELS: Record<string, string> = {
+  hourly: "Hourly",
+  retainer: "Retainer",
+  success_fee: "Success Fee",
+  fixed: "Fixed",
+  other: "Other",
+};
 
 export interface ContactGuestItem {
   id: number;

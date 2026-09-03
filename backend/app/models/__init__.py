@@ -23,6 +23,16 @@ from app.models.outreach import (
     UserEmailAccount,
 )
 from app.models.submission import ClientFeedback, Submission
+from app.models.offer import Offer
+from app.models.placement import Placement
+from app.models.billing import (
+    BillableItem,
+    Invoice,
+    InvoiceLineItem,
+    Payment,
+    RevenueEntry,
+    TimesheetEntry,
+)
 from app.models.user import User
 
 __all__ = [
@@ -53,4 +63,12 @@ __all__ = [
     "OutreachEmailLog",
     "Submission",
     "ClientFeedback",
+    "Offer",
+    "Placement",
+    "BillableItem",
+    "Invoice",
+    "InvoiceLineItem",
+    "Payment",
+    "RevenueEntry",
+    "TimesheetEntry",
 ]

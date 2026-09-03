@@ -12,9 +12,22 @@ interface CandidateCardProps {
   card: PipelineCard;
   variant?: "default" | "manatal";
   onSubmitCandidate?: (card: PipelineCard) => void;
+  onCreateOffer?: (card: PipelineCard) => void;
 }
 
-export default function CandidateCard({ card, variant = "default", onSubmitCandidate }: CandidateCardProps) {
+const OFFER_ELIGIBLE: PipelineStage[] = [
+  "interview_scheduled",
+  "interview_completed",
+  "client_review",
+  "offer_sent",
+];
+
+export default function CandidateCard({
+  card,
+  variant = "default",
+  onSubmitCandidate,
+  onCreateOffer,
+}: CandidateCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: String(card.assignment_id),
     data: { card },
@@ -32,6 +45,7 @@ export default function CandidateCard({ card, variant = "default", onSubmitCandi
     : null;
 
   const canSubmit = SUBMIT_ELIGIBLE_STAGES.includes(card.status) && !!onSubmitCandidate;
+  const canOffer = OFFER_ELIGIBLE.includes(card.status) && !!onCreateOffer;
 
   if (variant === "manatal") {
     return (
@@ -73,7 +87,20 @@ export default function CandidateCard({ card, variant = "default", onSubmitCandi
             >
               <Send className="h-3 w-3" /> Submit Candidate
             </button>
-          ) : <span />}
+          ) : canOffer ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateOffer?.(card);
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+            >
+              Create Offer
+            </button>
+          ) : (
+            <span />
+          )}
           <Link href={`/candidates/${card.candidate_id}`} onClick={(e) => e.stopPropagation()}
             className="text-gray-400 hover:text-primary">
             <Eye className="h-3.5 w-3.5" />

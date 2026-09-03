@@ -45,6 +45,8 @@ class EngagementBase(BaseModel):
         if self.billing_model == BillingModel.SUCCESS_BASED:
             if self.placement_fee_percent is None and self.flat_placement_fee is None and self.rate is not None:
                 self.flat_placement_fee = self.rate
+        if self.billing_model == BillingModel.FIXED and self.rate is None and self.flat_placement_fee is not None:
+            self.rate = self.flat_placement_fee
         return self
 
 

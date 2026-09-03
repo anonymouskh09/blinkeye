@@ -174,3 +174,75 @@ class BillingModel(str, enum.Enum):
     MONTHLY_RETAINER = "monthly_retainer"
     SUCCESS_BASED = "success_based"
     HYBRID = "hybrid"
+    FIXED = "fixed"
+
+
+class OfferStatus(str, enum.Enum):
+    DRAFT = "draft"
+    SENT = "sent"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+    EXPIRED = "expired"
+
+
+class PlacementStatus(str, enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    GUARANTEE_FAILED = "guarantee_failed"
+
+
+class BillableItemType(str, enum.Enum):
+    HOURLY = "hourly"
+    RETAINER = "retainer"
+    SUCCESS_FEE = "success_fee"
+    FIXED = "fixed"
+    OTHER = "other"
+
+
+class BillableItemStatus(str, enum.Enum):
+    DRAFT = "draft"
+    APPROVED = "approved"
+    INVOICED = "invoiced"
+    VOID = "void"
+
+
+class InvoiceStatus(str, enum.Enum):
+    DRAFT = "draft"
+    SENT = "sent"
+    PARTIALLY_PAID = "partially_paid"
+    PAID = "paid"
+    VOID = "void"
+    OVERDUE = "overdue"
+
+
+class InvoicePaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    PARTIAL = "partial"
+    PAID = "paid"
+    REFUNDED = "refunded"
+
+
+class PaymentMethod(str, enum.Enum):
+    BANK_TRANSFER = "bank_transfer"
+    WIRE = "wire"
+    CHECK = "check"
+    CASH = "cash"
+    OTHER = "other"
+
+
+class TimesheetStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class RevenueType(str, enum.Enum):
+    HOURLY = "hourly"
+    RETAINER = "retainer"
+    SUCCESS_FEE = "success_fee"
+    FIXED = "fixed"
+    HYBRID = "hybrid"
+    OTHER = "other"
