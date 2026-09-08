@@ -20,7 +20,7 @@ const SIDEBAR_BG = "#ffffff";
 const mainNav = [
   { href: "/dashboard", label: "Home", icon: Home, adminOnly: true },
   { href: "/my-jobs", label: "Home", icon: Home, recruiterOnly: true },
-  { href: "/clients", label: "Clients", icon: Building2, adminOnly: true },
+  { href: "/clients", label: "Clients", icon: Building2, needsClientView: true },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/candidates", label: "Candidates", icon: UserCheck },
 ];
@@ -44,10 +44,11 @@ const adminExtra = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, canViewClients } = useAuth();
   const { collapsed, toggle } = useSidebar();
 
   const navItems = mainNav.filter((item) => {
+    if ("needsClientView" in item && item.needsClientView && !canViewClients) return false;
     if (item.adminOnly && !isAdmin) return false;
     if (item.recruiterOnly && isAdmin) return false;
     return true;

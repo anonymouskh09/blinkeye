@@ -23,7 +23,7 @@ def get_pipeline(
     current_user: User = Depends(get_current_user),
 ):
     job = get_job_or_404(db, job_id)
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
 
     assignments = (
         db.query(CandidateJobAssignment)
@@ -69,7 +69,7 @@ def update_pipeline_status(
     if not assignment:
         raise NotFoundException("Assignment not found")
 
-    require_job_access(current_user, assignment.job)
+    require_job_access(current_user, assignment.job, db)
     old_status = assignment.status.value
     # CandidateJobAssignment.status is the sole pipeline source of truth.
     # Do NOT write Candidate.candidate_status (legacy global CRM field).

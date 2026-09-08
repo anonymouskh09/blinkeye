@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -20,6 +20,17 @@ class User(Base, TimestampMixin):
     status: Mapped[UserStatus] = mapped_column(
         pg_enum(UserStatus, name="user_status"), nullable=False, default=UserStatus.ACTIVE
     )
+
+    # Granular permissions (admin role bypasses these)
+    can_view_clients: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_add_clients: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_edit_clients: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_view_jobs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_add_jobs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_edit_jobs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_view_candidates: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_add_candidates: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_edit_candidates: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     assigned_jobs = relationship("Job", back_populates="assigned_recruiter", foreign_keys="Job.assigned_recruiter_id")
     created_candidates = relationship("Candidate", back_populates="created_by_user")

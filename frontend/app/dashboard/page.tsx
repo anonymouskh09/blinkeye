@@ -13,7 +13,6 @@ import api from "@/lib/api";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { ApiResponse, DashboardStats, DashboardCharts, ActivityLog, Interview, TopJobItem } from "@/types";
 
-import { useRouter } from "next/navigation";
 import HeaderActions from "@/components/layout/HeaderActions";
 
 interface RecentData {
@@ -25,7 +24,6 @@ interface RecentData {
 export default function DashboardPage() {
   useRequireRole("admin");
   const { user } = useAuth();
-  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<DashboardCharts | null>(null);
   const [recent, setRecent] = useState<RecentData | null>(null);
@@ -47,16 +45,16 @@ export default function DashboardPage() {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-slate-200/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-200/80">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Welcome back, {firstName} 👋
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500">
             Here&apos;s what&apos;s happening with your recruitment pipeline today.
           </p>
         </div>
-        <HeaderActions showPlusText={false} onAddClick={() => router.push("/jobs/new")} />
+        <HeaderActions showAddMenu />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

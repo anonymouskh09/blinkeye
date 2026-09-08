@@ -60,7 +60,8 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string
 ];
 
 export default function CandidateDetailContent() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = String(Array.isArray(params.id) ? params.id[0] : params.id || "");
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -72,6 +73,7 @@ export default function CandidateDetailContent() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState<Tab>("summary");
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState("");
@@ -89,18 +91,46 @@ export default function CandidateDetailContent() {
   }, [searchParams]);
 
   const fetchAll = useCallback(async () => {
-    const [c, a, n] = await Promise.all([
-      api.get<ApiResponse<Candidate>>(`/candidates/${id}`),
-      api.get<ApiResponse<{ items: ActivityLog[] }>>("/activity", { params: { entity_type: "candidate", entity_id: id } }),
-      api.get<ApiResponse<{ items: Note[] }>>("/notes", { params: { entity_type: "candidate", entity_id: id } }),
-    ]);
-    setCandidate(c.data.data);
-    setScheduledActivities(c.data.data.activities || []);
-    setActivity(a.data.data.items);
-    setNotes(n.data.data.items);
+    if (!id) {
+      setLoadError("Invalid candidate id");
+      setCandidate(null);
+      return;
+    }
+    setLoadError("");
+    try {
+      const c = await api.get<ApiResponse<Candidate>>(`/candidates/${id}`);
+      const data = c.data.data;
+      setCandidate(data);
+      setScheduledActivities(data?.activities || []);
+    } catch {
+      setCandidate(null);
+      setLoadError("Could not load this candidate. You may not have access, or it was deleted.");
+      setScheduledActivities([]);
+      setActivity([]);
+      setNotes([]);
+      return;
+    }
+
+    // Secondary data — never block the main profile if these fail
+    try {
+      const [a, n] = await Promise.all([
+        api.get<ApiResponse<{ items: ActivityLog[] }>>("/activity", {
+          params: { entity_type: "candidate", entity_id: id },
+        }),
+        api.get<ApiResponse<{ items: Note[] }>>("/notes", {
+          params: { entity_type: "candidate", entity_id: id },
+        }),
+      ]);
+      setActivity(a.data.data?.items || []);
+      setNotes(n.data.data?.items || []);
+    } catch {
+      setActivity([]);
+      setNotes([]);
+    }
   }, [id]);
 
   useEffect(() => {
+    setLoading(true);
     fetchAll().finally(() => setLoading(false));
   }, [fetchAll]);
 
@@ -175,7 +205,18 @@ export default function CandidateDetailContent() {
   };
 
   if (loading) return <PageWrapper><CardSkeleton /></PageWrapper>;
-  if (!candidate) return <PageWrapper><p className="p-6">Candidate not found</p></PageWrapper>;
+  if (!candidate) {
+    return (
+      <PageWrapper>
+        <div className="p-6 space-y-3">
+          <p className="text-sm text-gray-700">{loadError || "Candidate not found"}</p>
+          <Button variant="outline" size="sm" onClick={() => router.push("/candidates")}>
+            Back to Candidates
+          </Button>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper>

@@ -122,7 +122,7 @@ def _require_submission_access(user: User, db: Session, sub: Submission) -> Job:
     job = db.query(Job).filter(Job.id == sub.job_id).first()
     if not job:
         raise NotFoundException("Job not found")
-    require_job_access(user, job)
+    require_job_access(user, job, db)
     return job
 
 
@@ -193,7 +193,7 @@ def create_submission(
         raise NotFoundException("Candidate-job assignment not found")
 
     job = assignment.job
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
 
     if not assignment_can_submit(assignment):
         raise BadRequestException(

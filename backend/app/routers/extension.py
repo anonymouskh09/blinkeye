@@ -249,7 +249,7 @@ def import_candidate(
     first_edu = educations[0] if educations else {}
     summary_text = importer.clean_multiline(payload.summary, max_length=20000)
     extras = {
-        "source": "LinkedIn Extension",
+        "source": "Chrome Extension",
         "first_name": name_parts[0] if name_parts else None,
         "last_name": name_parts[1] if len(name_parts) > 1 else None,
         "summary": summary_text,
@@ -286,7 +286,7 @@ def import_candidate(
         summary=summary_text,
         profile_image_url=photo,
         linkedin_url=normalized_url,
-        source=(payload.source or "linkedin_extension")[:50],
+        source=(payload.source or "Chrome Extension")[:50],
         imported_via=imported_via,
         created_by=owner_id,
         assigned_job_id=job.id if job else None,

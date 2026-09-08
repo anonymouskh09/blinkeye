@@ -140,6 +140,10 @@ h1, h2, h3, .panel-title {
   .animate-slide-down {
     animation: slideDown 0.2s ease-out forwards;
   }
+
+  .animate-slide-over-right {
+    animation: slideOverRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
 
 @keyframes fadeIn {
@@ -155,6 +159,109 @@ h1, h2, h3, .panel-title {
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideOverRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Global search (Command Palette / Spotlight) */
+@keyframes gsBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gsBackdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes gsBarIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gsBarOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+}
+
+@keyframes gsPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gsPanelOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes gsResultIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gs-backdrop-in {
+  animation: gsBackdropIn 0.32s ease-out forwards;
+}
+
+.gs-backdrop-out {
+  animation: gsBackdropOut 0.28s ease-in forwards;
+}
+
+.gs-bar-in {
+  animation: gsBarIn 0.42s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+}
+
+.gs-bar-out {
+  animation: gsBarOut 0.28s ease-in forwards;
+}
+
+.gs-panel-in {
+  animation: gsPanelIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+.gs-panel-out {
+  animation: gsPanelOut 0.24s ease-in forwards;
+}
+
+.gs-result-in {
+  animation: gsResultIn 0.28s ease-out both;
 }
 
 /* Force 5px border-radius globally for all curved containers and elements */

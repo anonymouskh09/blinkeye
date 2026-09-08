@@ -37,6 +37,7 @@ class ClientCreate(BaseModel):
     stage: ClientStage = ClientStage.PROSPECT
     owner_id: int | None = None
     team_user_ids: list[int] = Field(default_factory=list)
+    visibility: str = Field(default="public", pattern="^(public|private)$")
 
 
 class ClientUpdate(BaseModel):
@@ -160,6 +161,14 @@ class ClientTeamMemberResponse(BaseModel):
     name: str
     email: str
     status: str
+    is_hidden: bool = False
+
+
+class ClientHiddenMemberResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    email: str
 
 
 class ClientGuestCreate(BaseModel):

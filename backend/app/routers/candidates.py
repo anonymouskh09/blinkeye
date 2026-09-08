@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import func, or_
+from sqlalchemy import String, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -27,7 +27,15 @@ from app.schemas.candidate import (
 )
 from app.services.activity_service import log_activity
 from app.services.file_service import get_cv_full_path, save_cv_file
-from app.services.permission_service import get_job_or_404, require_job_access
+from app.services.permission_service import (
+    apply_hidden_candidates_filter,
+    get_job_or_404,
+    has_permission,
+    require_add_candidates,
+    require_edit_candidates,
+    require_job_access,
+    require_view_candidates,
+)
 from app.services.scheduled_activity_service import scheduled_activity_response
 from app.services.resume_parser_service import merge_social_links, parse_resume_file
 
@@ -151,10 +159,12 @@ def _assignment_to_response(assignment: CandidateJobAssignment, db: Session) -> 
 
 
 def _get_candidate_or_404(db: Session, candidate_id: int, current_user: User) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
+    if not has_permission(current_user, "can_view_candidates"):
         raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
+    query = db.query(Candidate).filter(Candidate.id == candidate_id)
+    query = apply_hidden_candidates_filter(query, db, current_user)
+    candidate = query.first()
+    if not candidate:
         raise NotFoundException("Candidate not found")
     return candidate
 
@@ -180,13 +190,14 @@ def list_candidates(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_view_candidates),
 ):
     query = db.query(Candidate)
-    if current_user.role != UserRole.ADMIN:
-        query = query.filter(Candidate.created_by == current_user.id)
-    elif created_by:
+    # Optional filter for admins / reports — everyone else sees all visible candidates
+    if created_by:
         query = query.filter(Candidate.created_by == created_by)
+
+    query = apply_hidden_candidates_filter(query, db, current_user)
 
     if date_from:
         query = query.filter(func.date(Candidate.created_at) >= date_from)
@@ -195,9 +206,20 @@ def list_candidates(
 
     if search:
         term = f"%{search}%"
-        query = query.filter(
-            or_(Candidate.name.ilike(term), Candidate.email.ilike(term), Candidate.current_job_title.ilike(term))
-        )
+        from app.services.search_refs import parse_candidate_ref
+
+        clauses = [
+            Candidate.name.ilike(term),
+            Candidate.email.ilike(term),
+            Candidate.current_job_title.ilike(term),
+            Candidate.phone.ilike(term),
+        ]
+        ref_id = parse_candidate_ref(search)
+        if ref_id is not None:
+            clauses.append(Candidate.id == ref_id)
+        # Also match plain id as text (e.g. "12")
+        clauses.append(func.cast(Candidate.id, String).ilike(term))
+        query = query.filter(or_(*clauses))
     if location:
         query = query.filter(Candidate.location.ilike(f"%{location}%"))
     if skill:
@@ -228,11 +250,7 @@ def patch_candidate_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
-        raise NotFoundException("Candidate not found")
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
 
     data = payload.model_dump(exclude_unset=True)
 
@@ -245,7 +263,7 @@ def patch_candidate_profile(
         assigned_job_id = data.pop("assigned_job_id")
         if assigned_job_id:
             job = get_job_or_404(db, assigned_job_id)
-            require_job_access(current_user, job)
+            require_job_access(current_user, job, db)
             existing = db.query(CandidateJobAssignment).filter(
                 CandidateJobAssignment.candidate_id == candidate_id,
                 CandidateJobAssignment.job_id == assigned_job_id,
@@ -285,7 +303,7 @@ def patch_candidate_profile(
 @router.post("")
 async def create_candidate(
     name: str = Form(...),
-    email: str = Form(...),
+    email: str = Form(""),
     phone: str | None = Form(None),
     location: str | None = Form(None),
     current_job_title: str | None = Form(None),
@@ -298,7 +316,7 @@ async def create_candidate(
     notes: str | None = Form(None),
     cv_file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_add_candidates),
 ):
     skills_list = None
     if skills:
@@ -385,13 +403,9 @@ async def update_candidate(
     notes: str | None = Form(None),
     cv_file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_edit_candidates),
 ):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
-        raise NotFoundException("Candidate not found")
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
 
     field_map = {
         "name": name, "email": email, "phone": phone, "location": location,
@@ -436,14 +450,9 @@ async def update_candidate(
 def delete_candidate(
     candidate_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_edit_candidates),
 ):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
-        raise NotFoundException("Candidate not found")
-
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
     log_activity(
         db, EntityType.CANDIDATE, candidate.id, ActivityAction.DELETED,
         f"Candidate '{candidate.name}' was deleted", current_user.id,
@@ -460,14 +469,10 @@ def assign_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
-        raise NotFoundException("Candidate not found")
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
 
     job = get_job_or_404(db, payload.job_id)
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
 
     existing = db.query(CandidateJobAssignment).filter(
         CandidateJobAssignment.candidate_id == candidate_id,
@@ -501,11 +506,7 @@ def download_cv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
-    if not candidate:
-        raise NotFoundException("Candidate not found")
-    if current_user.role != UserRole.ADMIN and candidate.created_by != current_user.id:
-        raise NotFoundException("Candidate not found")
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
     if not candidate.cv_file_path:
         raise NotFoundException("No CV file found")
 

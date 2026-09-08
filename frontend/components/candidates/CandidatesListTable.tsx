@@ -30,11 +30,21 @@ function formatCreatedDate(dateStr: string) {
 
 interface Props {
   candidates: Candidate[];
+  selectedIds?: number[];
+  onToggle?: (id: number) => void;
+  onToggleAll?: () => void;
 }
 
-export default function CandidatesListTable({ candidates }: Props) {
+export default function CandidatesListTable({
+  candidates,
+  selectedIds = [],
+  onToggle,
+  onToggleAll,
+}: Props) {
   const [menuId, setMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const allSelected = candidates.length > 0 && candidates.every((c) => selectedIds.includes(c.id));
+  const someSelected = candidates.some((c) => selectedIds.includes(c.id));
 
   return (
     <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-card">
@@ -42,7 +52,17 @@ export default function CandidatesListTable({ candidates }: Props) {
         <table className="min-w-full">
           <thead>
             <tr className="bg-[#F1F4F8] border-b border-gray-100">
-              <th className="w-10 px-3 py-3 rounded-l-xl"><input type="checkbox" className="rounded border-gray-300" /></th>
+              <th className="w-10 px-3 py-3 rounded-l-xl">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={() => onToggleAll?.()}
+                />
+              </th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap min-w-[220px]">
                 <span className="inline-flex items-center gap-1">Candidate Name <ArrowUpDown className="h-3 w-3" /></span>
               </th>
@@ -76,7 +96,14 @@ export default function CandidatesListTable({ candidates }: Props) {
                   idx % 2 === 1 ? "bg-primary-50/20" : "bg-white"
                 )}
               >
-                <td className="px-3 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
+                <td className="px-3 py-3">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={selectedIds.includes(c.id)}
+                    onChange={() => onToggle?.(c.id)}
+                  />
+                </td>
                 <td className="px-3 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2.5">
                     <ClientAvatar name={c.name} size="sm" />

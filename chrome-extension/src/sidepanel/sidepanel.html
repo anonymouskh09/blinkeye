@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RecruitPro</title>
+    <link rel="stylesheet" href="./sidepanel.css" />
+  </head>
+  <body class="sp">
+    <header class="sp-header" id="sp-header">
+      <div class="sp-brand">
+        <span class="sp-mark" aria-hidden="true"></span>
+        <div>
+          <div class="sp-brand-name">RecruitPro</div>
+          <div class="sp-status" id="sp-status">Open a LinkedIn profile</div>
+        </div>
+      </div>
+      <button type="button" class="sp-icon-btn" id="btn-open-ats" title="Open ATS">↗</button>
+    </header>
+
+    <main id="root" class="sp-main" aria-live="polite"></main>
+
+    <footer class="sp-footer" id="sp-footer" hidden></footer>
+
+    <script type="module" src="./sidepanel.ts"></script>
+  </body>
+</html>

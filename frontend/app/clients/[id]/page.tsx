@@ -21,7 +21,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { CardSkeleton } from "@/components/ui/Skeleton";
-import { useRequireRole } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 import type { ApiResponse, Client, ActivityLog, Note, User, ClientStage, PaginatedData } from "@/types";
@@ -50,13 +50,17 @@ export default function ClientDetailPage() {
 }
 
 function ClientDetailPageInner() {
-  useRequireRole("admin");
-  const { id } = useParams();
+  const { canViewClients, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { id } = useParams();
   const searchParams = useSearchParams();
   const clientId = String(id);
   const initialTab = (searchParams.get("tab") as Tab) || "summary";
   const validInitialTab = TABS.some((t) => t.id === initialTab) ? initialTab : "summary";
+
+  useEffect(() => {
+    if (!authLoading && !canViewClients) router.replace("/my-jobs");
+  }, [authLoading, canViewClients, router]);
 
   const [client, setClient] = useState<Client | null>(null);
   const [tab, setTab] = useState<Tab>(validInitialTab);
@@ -283,14 +287,82 @@ function ClientDetailPageInner() {
           {tab === "team" && (
             <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
               <Button size="sm" onClick={() => setAddTeamOpen(true)} className="mb-4"><Plus className="h-4 w-4 mr-1" /> Add Team Member</Button>
+              <p className="mb-3 text-xs text-slate-500">
+                {(client.visibility || "public") === "private"
+                  ? "This client is private — only assigned members below can see the client, its jobs, and related candidates."
+                  : "This client is public — all members can see it. Hide a member to block them specifically, or switch to Private in the header."}
+              </p>
               {client.team?.map((m) => (
                 <div key={m.id} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
                   <UserAvatar name={m.name} size="md" />
-                  <div className="flex-1"><p className="font-medium text-sm">{m.name}</p><p className="text-xs text-gray-500">{m.email}</p></div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.email}</p>
+                  </div>
                   <Badge className="bg-green-100 text-green-700 uppercase text-[10px]">{m.status}</Badge>
+                  {m.is_hidden ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await api.delete(`/clients/${id}/hidden-members/${m.user_id}`);
+                          toast.success("Client is visible again");
+                          fetchClient();
+                        } catch {
+                          toast.error("Failed to unhide");
+                        }
+                      }}
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                    >
+                      Hidden — Unhide
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await api.post(`/clients/${id}/hidden-members`, null, { params: { user_id: m.user_id } });
+                          toast.success("Client hidden from member");
+                          fetchClient();
+                        } catch {
+                          toast.error("Failed to hide");
+                        }
+                      }}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Hide
+                    </button>
+                  )}
                   <button type="button" onClick={() => removeTeamMember(m.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
+              {(client.hidden_members || []).filter((h) => !client.team?.some((t) => t.user_id === h.user_id)).length > 0 && (
+                <div className="mt-6 border-t border-slate-100 pt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Also hidden</p>
+                  {client.hidden_members
+                    ?.filter((h) => !client.team?.some((t) => t.user_id === h.user_id))
+                    .map((h) => (
+                      <div key={h.id} className="flex items-center justify-between py-2 text-sm">
+                        <span>{h.name} <span className="text-xs text-slate-400">({h.email})</span></span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.delete(`/clients/${id}/hidden-members/${h.user_id}`);
+                              toast.success("Unhidden");
+                              fetchClient();
+                            } catch {
+                              toast.error("Failed");
+                            }
+                          }}
+                          className="text-xs font-semibold text-[#1F574A] hover:underline"
+                        >
+                          Unhide
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 

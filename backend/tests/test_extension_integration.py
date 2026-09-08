@@ -138,3 +138,46 @@ def test_check_duplicate_endpoint(client, db_session):
         headers=headers,
     )
     assert res.json()["data"]["duplicate"] is True
+
+
+def test_import_persists_experiences_education_skills(client, db_session):
+    user = _make_user(db_session)
+    tokens = _connect(client, db_session, user)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    payload = {
+        "full_name": "Nested Persist",
+        "linkedin_url": "https://www.linkedin.com/in/nested-persist",
+        "source": "Chrome Extension",
+        "imported_via": "chrome_extension",
+        "experiences": [
+            {
+                "title": "Senior Engineer",
+                "company": "Acme",
+                "start_date": "Jan 2022",
+                "is_current": True,
+                "location": "Berlin",
+            }
+        ],
+        "educations": [{"school": "MIT", "degree": "BS CS", "start_date": "2015", "end_date": "2019"}],
+        "skills": ["TypeScript", "Python"],
+        "certifications": [{"name": "AWS SAA", "issuing_organization": "Amazon"}],
+        "languages": [{"language": "English", "proficiency": "Native"}],
+    }
+    res = client.post("/api/v1/extension/candidates", json=payload, headers=headers)
+    assert res.status_code == 200, res.text
+    candidate_id = res.json()["data"]["id"]
+
+    from app.models.candidate import Candidate
+
+    c = db_session.query(Candidate).filter(Candidate.id == candidate_id).first()
+    assert c is not None
+    assert c.source == "Chrome Extension"
+    assert c.imported_via == "chrome_extension"
+    assert c.experiences[0]["title"] == "Senior Engineer"
+    assert c.educations[0]["school"] == "MIT"
+    assert "TypeScript" in (c.skills or [])
+    assert c.skill_levels[0]["name"] == "TypeScript"
+    assert c.profile_extras["source"] == "Chrome Extension"
+    assert c.profile_extras["certifications"][0]["name"] == "AWS SAA"
+    assert c.profile_extras["languages"][0]["language"] == "English"

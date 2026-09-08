@@ -10,6 +10,7 @@ from app.models.job_activity import JobActivity
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
 from app.models.client_team import ClientTeamMember
+from app.models.client_hidden import ClientHiddenMember
 from app.models.engagement import Engagement
 from app.models.extension_auth import ExtensionAuthCode, ExtensionToken
 from app.models.interview import Interview
@@ -40,6 +41,7 @@ __all__ = [
     "Client",
     "ClientContact",
     "ClientTeamMember",
+    "ClientHiddenMember",
     "ClientGuest",
     "ClientAttachment",
     "Engagement",

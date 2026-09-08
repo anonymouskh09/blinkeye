@@ -23,7 +23,7 @@ function MainContent({
       className={cn(
         "min-h-screen transition-all duration-300",
         isDark ? "bg-[#0a0b0d]" : "bg-surface-muted",
-        !flush && (isDark ? "p-5 lg:p-6" : "p-4 lg:p-8"),
+        !flush && (isDark ? "pt-3 px-5 pb-5 lg:pt-4 lg:px-6 lg:pb-6" : "pt-3 px-4 pb-4 lg:pt-4 lg:px-8 lg:pb-8"),
         collapsed ? "ml-[72px]" : "ml-48",
       )}
     >

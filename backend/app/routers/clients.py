@@ -10,9 +10,10 @@ from app.models.client_activity import ClientActivity
 from app.models.client_attachment import ClientAttachment
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
+from app.models.client_hidden import ClientHiddenMember
 from app.models.client_team import ClientTeamMember
 from app.models.engagement import Engagement
-from app.models.enums import ActivityAction, ClientStage, ClientStatus, EntityType
+from app.models.enums import ActivityAction, ClientStage, ClientStatus, EntityType, UserRole, UserStatus
 from app.models.job import Job
 from app.models.user import User
 from app.schemas.client import (
@@ -38,6 +39,13 @@ from app.services.client_file_service import (
     delete_attachment_file,
     get_attachment_full_path,
     save_client_attachment,
+)
+from app.services.permission_service import (
+    apply_hidden_clients_filter,
+    require_add_clients,
+    require_client_visible,
+    require_edit_clients,
+    require_view_clients,
 )
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -121,6 +129,10 @@ def _client_detail(client: Client, db: Session) -> dict:
     ]
 
     team = []
+    hidden_ids = {
+        h.user_id
+        for h in db.query(ClientHiddenMember).filter(ClientHiddenMember.client_id == client.id).all()
+    }
     for tm in db.query(ClientTeamMember).filter(ClientTeamMember.client_id == client.id).all():
         user = db.query(User).filter(User.id == tm.user_id).first()
         if user:
@@ -131,7 +143,21 @@ def _client_detail(client: Client, db: Session) -> dict:
                     name=user.name,
                     email=user.email,
                     status=user.status.value,
+                    is_hidden=user.id in hidden_ids,
                 ).model_dump()
+            )
+
+    hidden_members = []
+    for h in db.query(ClientHiddenMember).filter(ClientHiddenMember.client_id == client.id).all():
+        user = db.query(User).filter(User.id == h.user_id).first()
+        if user:
+            hidden_members.append(
+                {
+                    "id": h.id,
+                    "user_id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                }
             )
 
     guests = [
@@ -187,6 +213,7 @@ def _client_detail(client: Client, db: Session) -> dict:
     ]
     data["contacts"] = contacts
     data["team"] = team
+    data["hidden_members"] = hidden_members
     data["guests"] = guests
     data["attachments"] = attachments
     data["activities"] = activity_items
@@ -202,21 +229,29 @@ def list_clients(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    current_user: User = Depends(require_view_clients),
 ):
     query = db.query(Client)
+    query = apply_hidden_clients_filter(query, db, current_user, Client.id)
     if search:
+        from sqlalchemy import String, cast
+
+        from app.services.search_refs import parse_numeric_id
+
         term = f"%{search}%"
-        query = query.filter(
-            or_(
-                Client.company_name.ilike(term),
-                Client.contact_person.ilike(term),
-                Client.email.ilike(term),
-                Client.phone.ilike(term),
-                Client.industry.ilike(term),
-                Client.location.ilike(term),
-            )
-        )
+        clauses = [
+            Client.company_name.ilike(term),
+            Client.contact_person.ilike(term),
+            Client.email.ilike(term),
+            Client.phone.ilike(term),
+            Client.industry.ilike(term),
+            Client.location.ilike(term),
+            cast(Client.id, String).ilike(term),
+        ]
+        num_id = parse_numeric_id(search)
+        if num_id is not None:
+            clauses.append(Client.id == num_id)
+        query = query.filter(or_(*clauses))
     if status:
         query = query.filter(Client.status == status)
     if stage:
@@ -236,9 +271,11 @@ def list_clients(
 @router.get("/board")
 def board_clients(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    current_user: User = Depends(require_view_clients),
 ):
-    clients = db.query(Client).filter(Client.status == ClientStatus.ACTIVE).order_by(Client.created_at.desc()).all()
+    query = db.query(Client).filter(Client.status == ClientStatus.ACTIVE)
+    query = apply_hidden_clients_filter(query, db, current_user, Client.id)
+    clients = query.order_by(Client.created_at.desc()).all()
     board: dict[str, list] = {stage.value: [] for stage in ClientStage}
     for client in clients:
         board[client.stage.value].append(_client_to_response(client, db))
@@ -249,13 +286,13 @@ def board_clients(
 def create_client(
     payload: ClientCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_add_clients),
 ):
     data = payload.model_dump(exclude={"team_user_ids"})
     contact_title = data.pop("contact_title", None)
     team_user_ids = list(dict.fromkeys(payload.team_user_ids or []))
     if not data.get("owner_id"):
-        data["owner_id"] = team_user_ids[0] if team_user_ids else admin.id
+        data["owner_id"] = team_user_ids[0] if team_user_ids else current_user.id
 
     client = Client(**data)
     db.add(client)
@@ -278,7 +315,7 @@ def create_client(
 
     log_activity(
         db, EntityType.CLIENT, client.id, ActivityAction.CREATED,
-        f"Client '{client.company_name}' was created", admin.id,
+        f"Client '{client.company_name}' was created", current_user.id,
     )
     db.commit()
     db.refresh(client)
@@ -289,11 +326,12 @@ def create_client(
 def get_client(
     client_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    current_user: User = Depends(require_view_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise NotFoundException("Client not found")
+    require_client_visible(db, current_user, client_id)
     return success_response(data=_client_detail(client, db), message="Client retrieved")
 
 
@@ -302,11 +340,12 @@ def update_client(
     client_id: int,
     payload: ClientUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise NotFoundException("Client not found")
+    require_client_visible(db, current_user, client_id)
 
     update_data = payload.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -314,7 +353,7 @@ def update_client(
 
     log_activity(
         db, EntityType.CLIENT, client.id, ActivityAction.UPDATED,
-        f"Client '{client.company_name}' was updated", admin.id,
+        f"Client '{client.company_name}' was updated", current_user.id,
     )
     db.commit()
     db.refresh(client)
@@ -325,7 +364,7 @@ def update_client(
 def delete_client(
     client_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -334,7 +373,7 @@ def delete_client(
     client.status = ClientStatus.INACTIVE
     log_activity(
         db, EntityType.CLIENT, client.id, ActivityAction.DELETED,
-        f"Client '{client.company_name}' was archived", admin.id,
+        f"Client '{client.company_name}' was archived", current_user.id,
     )
     db.commit()
     return success_response(message="Client archived")
@@ -345,7 +384,7 @@ def add_contact(
     client_id: int,
     payload: ClientContactCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -354,7 +393,7 @@ def add_contact(
     db.add(contact)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Contact '{payload.name}' was added to client '{client.company_name}'", admin.id,
+        f"Contact '{payload.name}' was added to client '{client.company_name}'", current_user.id,
     )
     db.commit()
     db.refresh(contact)
@@ -366,7 +405,7 @@ def add_team_member(
     client_id: int,
     user_id: int = Query(...),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -383,7 +422,7 @@ def add_team_member(
     db.add(tm)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Team member '{user.name}' was added to client '{client.company_name}'", admin.id,
+        f"Team member '{user.name}' was added to client '{client.company_name}'", current_user.id,
     )
     db.commit()
     return success_response(
@@ -399,7 +438,7 @@ def add_guest(
     client_id: int,
     payload: ClientGuestCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -408,7 +447,7 @@ def add_guest(
     db.add(guest)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Guest '{payload.name}' was added to client '{client.company_name}'", admin.id,
+        f"Guest '{payload.name}' was added to client '{client.company_name}'", current_user.id,
     )
     db.commit()
     db.refresh(guest)
@@ -420,7 +459,7 @@ def delete_contact(
     client_id: int,
     contact_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     contact = db.query(ClientContact).filter(
         ClientContact.id == contact_id, ClientContact.client_id == client_id
@@ -431,7 +470,7 @@ def delete_contact(
     db.delete(contact)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Contact '{name}' was removed", admin.id,
+        f"Contact '{name}' was removed", current_user.id,
     )
     db.commit()
     return success_response(message="Contact removed")
@@ -442,7 +481,7 @@ def remove_team_member(
     client_id: int,
     team_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     tm = db.query(ClientTeamMember).filter(
         ClientTeamMember.id == team_id, ClientTeamMember.client_id == client_id
@@ -453,7 +492,7 @@ def remove_team_member(
     db.delete(tm)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Team member '{user.name if user else team_id}' was removed", admin.id,
+        f"Team member '{user.name if user else team_id}' was removed", current_user.id,
     )
     db.commit()
     return success_response(message="Team member removed")
@@ -464,7 +503,7 @@ def delete_guest(
     client_id: int,
     guest_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     guest = db.query(ClientGuest).filter(
         ClientGuest.id == guest_id, ClientGuest.client_id == client_id
@@ -475,7 +514,7 @@ def delete_guest(
     db.delete(guest)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Guest '{name}' was removed", admin.id,
+        f"Guest '{name}' was removed", current_user.id,
     )
     db.commit()
     return success_response(message="Guest removed")
@@ -486,7 +525,7 @@ async def upload_attachment(
     client_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -497,12 +536,12 @@ async def upload_attachment(
         filename=filename,
         file_path=relative_path,
         file_size=file_size,
-        uploaded_by=admin.id,
+        uploaded_by=current_user.id,
     )
     db.add(attachment)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Attachment '{filename}' was uploaded", admin.id,
+        f"Attachment '{filename}' was uploaded", current_user.id,
     )
     db.commit()
     db.refresh(attachment)
@@ -514,7 +553,7 @@ async def upload_attachment(
             file_path=attachment.file_path,
             file_size=attachment.file_size,
             uploaded_by=attachment.uploaded_by,
-            uploaded_by_name=admin.name,
+            uploaded_by_name=current_user.name,
             created_at=attachment.created_at,
         ).model_dump(),
         message="Attachment uploaded",
@@ -526,7 +565,7 @@ def download_attachment(
     client_id: int,
     attachment_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _current_user: User = Depends(require_edit_clients),
 ):
     attachment = db.query(ClientAttachment).filter(
         ClientAttachment.id == attachment_id, ClientAttachment.client_id == client_id
@@ -548,7 +587,7 @@ def delete_attachment(
     client_id: int,
     attachment_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     attachment = db.query(ClientAttachment).filter(
         ClientAttachment.id == attachment_id, ClientAttachment.client_id == client_id
@@ -560,7 +599,7 @@ def delete_attachment(
     db.delete(attachment)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Attachment '{filename}' was deleted", admin.id,
+        f"Attachment '{filename}' was deleted", current_user.id,
     )
     db.commit()
     return success_response(message="Attachment deleted")
@@ -571,7 +610,7 @@ def update_client_tags(
     client_id: int,
     payload: ClientTagsUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
@@ -581,7 +620,7 @@ def update_client_tags(
         client.custom_tags = payload.custom_tags
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Tags updated for '{client.company_name}'", admin.id,
+        f"Tags updated for '{client.company_name}'", current_user.id,
     )
     db.commit()
     db.refresh(client)
@@ -597,7 +636,7 @@ def update_client_activity(
     activity_id: int,
     payload: ClientActivityUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     activity = db.query(ClientActivity).filter(
         ClientActivity.id == activity_id, ClientActivity.client_id == client_id
@@ -608,7 +647,7 @@ def update_client_activity(
         setattr(activity, key, value)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Activity '{activity.title}' was updated", admin.id,
+        f"Activity '{activity.title}' was updated", current_user.id,
     )
     db.commit()
     db.refresh(activity)
@@ -642,20 +681,20 @@ def create_client_activity(
     client_id: int,
     payload: ClientActivityCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise NotFoundException("Client not found")
     activity = ClientActivity(
         client_id=client_id,
-        created_by=admin.id,
+        created_by=current_user.id,
         **payload.model_dump(),
     )
     db.add(activity)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Activity '{payload.title}' was created", admin.id,
+        f"Activity '{payload.title}' was created", current_user.id,
     )
     db.commit()
     db.refresh(activity)
@@ -676,7 +715,7 @@ def create_client_activity(
             assigned_to_name=assignee.name if assignee else None,
             share_with_guests=activity.share_with_guests,
             created_by=activity.created_by,
-            created_by_name=admin.name,
+            created_by_name=current_user.name,
             created_at=activity.created_at,
         ).model_dump(),
         message="Activity created",
@@ -688,7 +727,7 @@ def delete_client_activity(
     client_id: int,
     activity_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_clients),
 ):
     activity = db.query(ClientActivity).filter(
         ClientActivity.id == activity_id, ClientActivity.client_id == client_id
@@ -699,7 +738,95 @@ def delete_client_activity(
     db.delete(activity)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
-        f"Activity '{title}' was deleted", admin.id,
+        f"Activity '{title}' was deleted", current_user.id,
     )
     db.commit()
     return success_response(message="Activity deleted")
+
+
+@router.get("/{client_id}/hidden-members")
+def list_hidden_members(
+    client_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise NotFoundException("Client not found")
+    items = []
+    for h in db.query(ClientHiddenMember).filter(ClientHiddenMember.client_id == client_id).all():
+        user = db.query(User).filter(User.id == h.user_id).first()
+        if user:
+            items.append({"id": h.id, "user_id": user.id, "name": user.name, "email": user.email})
+    return success_response(data=items, message="Hidden members retrieved")
+
+
+@router.post("/{client_id}/hidden-members")
+def hide_client_from_member(
+    client_id: int,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise NotFoundException("Client not found")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise NotFoundException("User not found")
+    if user.role == UserRole.ADMIN:
+        raise BadRequestException("Cannot hide a client from an admin")
+    if user.id == admin.id:
+        raise BadRequestException("Cannot hide a client from yourself")
+
+    existing = (
+        db.query(ClientHiddenMember)
+        .filter(ClientHiddenMember.client_id == client_id, ClientHiddenMember.user_id == user_id)
+        .first()
+    )
+    if existing:
+        return success_response(
+            data={"id": existing.id, "user_id": user.id, "name": user.name, "email": user.email},
+            message="Already hidden",
+        )
+
+    row = ClientHiddenMember(client_id=client_id, user_id=user_id)
+    db.add(row)
+    log_activity(
+        db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
+        f"Client '{client.company_name}' was hidden from {user.name}", admin.id,
+    )
+    db.commit()
+    db.refresh(row)
+    return success_response(
+        data={"id": row.id, "user_id": user.id, "name": user.name, "email": user.email},
+        message="Client hidden from team member",
+    )
+
+
+@router.delete("/{client_id}/hidden-members/{user_id}")
+def unhide_client_from_member(
+    client_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise NotFoundException("Client not found")
+    row = (
+        db.query(ClientHiddenMember)
+        .filter(ClientHiddenMember.client_id == client_id, ClientHiddenMember.user_id == user_id)
+        .first()
+    )
+    if not row:
+        raise NotFoundException("Hidden member record not found")
+    user = db.query(User).filter(User.id == user_id).first()
+    db.delete(row)
+    log_activity(
+        db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,
+        f"Client '{client.company_name}' is visible again to {user.name if user else user_id}",
+        admin.id,
+    )
+    db.commit()
+    return success_response(message="Client unhidden for team member")

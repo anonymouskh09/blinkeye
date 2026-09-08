@@ -1,5 +1,6 @@
 import { normalizeLinkedInUrl } from "./normalizeUrl";
 import { cleanText } from "./text";
+import { debugLog, normalizeCandidateProfile } from "./normalizeProfile";
 import type { CandidateProfile, ImportPayload } from "../types";
 
 // Lightweight, Unicode-aware email check. We keep this permissive on purpose
@@ -45,24 +46,26 @@ export function toImportPayload(
     currentCompany?: string;
   },
 ): ImportPayload {
-  const normalizedUrl = normalizeLinkedInUrl(profile.linkedinUrl);
-  const experiences = profile.experiences || [];
-  const educations = profile.educations || [];
-  const skills = (profile.skills || []).map((s) => cleanText(s)).filter(Boolean);
-  const certifications = profile.certifications || [];
-  const languages = profile.languages || [];
+  const normalized = normalizeCandidateProfile(profile);
+  const normalizedUrl = normalizeLinkedInUrl(normalized.linkedinUrl);
+  const experiences = normalized.experiences;
+  const educations = normalized.educations;
+  const skills = normalized.skills;
+  const certifications = normalized.certifications;
+  const languages = normalized.languages;
   const current = experiences.find((e) => e.is_current) || experiences[0];
 
-  return {
-    fullName: cleanText(profile.fullName),
-    headline: cleanText(profile.headline) || undefined,
-    location: cleanText(profile.location) || undefined,
-    summary: profile.summary ? profile.summary.trim() : undefined,
+  const payload: ImportPayload = {
+    fullName: cleanText(normalized.fullName),
+    headline: cleanText(normalized.headline) || undefined,
+    location: cleanText(normalized.location) || undefined,
+    summary: normalized.summary ? normalized.summary.trim() : undefined,
     linkedinUrl: normalizedUrl ?? "",
-    profileImageUrl: profile.profileImageUrl?.trim() || undefined,
-    email: profile.email ? cleanText(profile.email).toLowerCase() : undefined,
-    phone: cleanText(profile.phone) || undefined,
-    source: "linkedin_extension",
+    profileImageUrl: normalized.profileImageUrl?.trim() || undefined,
+    email: normalized.email ? cleanText(normalized.email).toLowerCase() : undefined,
+    phone: cleanText(normalized.phone) || undefined,
+    // PRD: candidate source recorded as Chrome Extension
+    source: "Chrome Extension",
     importedVia: extras.importedVia || "chrome_extension",
     jobId: extras.jobId ?? null,
     ownerId: extras.ownerId ?? null,
@@ -75,10 +78,36 @@ export function toImportPayload(
     languages: languages.length ? languages : undefined,
     currentJobTitle:
       cleanText(extras.currentJobTitle) ||
-      (current?.title ? cleanText(current.title) : cleanText(profile.headline)) ||
+      (current?.title ? cleanText(current.title) : cleanText(normalized.headline)) ||
       undefined,
     currentCompany:
       cleanText(extras.currentCompany) ||
       (current?.company ? cleanText(current.company) : undefined),
   };
+
+  debugLog("import payload", {
+    fullName: payload.fullName,
+    source: payload.source,
+    importedVia: payload.importedVia,
+    experiences: payload.experiences?.length ?? 0,
+    educations: payload.educations?.length ?? 0,
+    skills: payload.skills?.length ?? 0,
+    certifications: payload.certifications?.length ?? 0,
+    languages: payload.languages?.length ?? 0,
+    jobId: payload.jobId,
+    stage: payload.stage,
+  });
+
+  try {
+    // Always log final experience JSON sent to backend (no tokens/secrets)
+    // eslint-disable-next-line no-console
+    console.info("[RecruitPro] final experiences for API", {
+      count: payload.experiences?.length ?? 0,
+      experiences: payload.experiences ?? [],
+    });
+  } catch {
+    /* ignore */
+  }
+
+  return payload;
 }

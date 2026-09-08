@@ -672,7 +672,7 @@ export default function ClientEngagementsTab({ clientId, engagements, users, onR
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-gray-900">Jobs under this Engagement</p>
                 <Link
-                  href={`/jobs/new?client_id=${clientId}&engagement_id=${selected.id}`}
+                  href={`/jobs?create=1&client_id=${clientId}&engagement_id=${selected.id}`}
                   className="text-xs text-primary hover:underline"
                 >
                   + Create Job

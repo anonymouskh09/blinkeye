@@ -40,6 +40,15 @@ export interface User {
   phone?: string;
   role: UserRole;
   status: UserStatus;
+  can_view_clients?: boolean;
+  can_add_clients?: boolean;
+  can_edit_clients?: boolean;
+  can_view_jobs?: boolean;
+  can_add_jobs?: boolean;
+  can_edit_jobs?: boolean;
+  can_view_candidates?: boolean;
+  can_add_candidates?: boolean;
+  can_edit_candidates?: boolean;
   created_at: string;
   updated_at: string;
   assigned_jobs_count?: number;
@@ -113,6 +122,7 @@ export interface Client {
   engagements?: Engagement[];
   contacts?: ClientContact[];
   team?: ClientTeamMember[];
+  hidden_members?: { id: number; user_id: number; name: string; email: string }[];
   guests?: ClientGuest[];
   attachments?: ClientAttachment[];
   activities?: ClientActivity[];
@@ -148,6 +158,7 @@ export interface ClientTeamMember {
   name: string;
   email: string;
   status: string;
+  is_hidden?: boolean;
 }
 
 export interface ClientGuest {

@@ -42,11 +42,25 @@ interface Props {
   showClient?: boolean;
   hideToolbar?: boolean;
   onFiltersClick?: () => void;
+  selectedIds?: number[];
+  onToggle?: (id: number) => void;
+  onToggleAll?: () => void;
 }
 
-export default function JobsListTable({ jobs, onRefresh, showClient = true, hideToolbar = false, onFiltersClick }: Props) {
+export default function JobsListTable({
+  jobs,
+  onRefresh,
+  showClient = true,
+  hideToolbar = false,
+  onFiltersClick,
+  selectedIds = [],
+  onToggle,
+  onToggleAll,
+}: Props) {
   const [menuId, setMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const allSelected = jobs.length > 0 && jobs.every((j) => selectedIds.includes(j.id));
+  const someSelected = jobs.some((j) => selectedIds.includes(j.id));
 
   const updateStatus = async (jobId: number, status: JobStatus) => {
     try {
@@ -78,7 +92,17 @@ export default function JobsListTable({ jobs, onRefresh, showClient = true, hide
         <table className="min-w-full">
           <thead>
             <tr className="bg-[#F1F4F8] border-b border-gray-200">
-              <th className="w-10 px-3 py-3 rounded-l-xl"><input type="checkbox" className="rounded border-gray-300" /></th>
+              <th className="w-10 px-3 py-3 rounded-l-xl">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !allSelected;
+                  }}
+                  onChange={() => onToggleAll?.()}
+                />
+              </th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
                 <span className="inline-flex items-center gap-1">Position Name <ArrowUpDown className="h-3 w-3" /></span>
               </th>
@@ -114,7 +138,14 @@ export default function JobsListTable({ jobs, onRefresh, showClient = true, hide
                   "border-b border-gray-100 hover:bg-primary-50/40 transition-colors",
                   idx % 2 === 1 ? "bg-primary-50/20" : "bg-white"
                 )}>
-                  <td className="px-3 py-3"><input type="checkbox" className="rounded border-gray-300" /></td>
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={selectedIds.includes(j.id)}
+                      onChange={() => onToggle?.(j.id)}
+                    />
+                  </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <Link href={`/jobs/${j.id}`} className="text-primary hover:underline text-sm font-medium">{j.title}</Link>

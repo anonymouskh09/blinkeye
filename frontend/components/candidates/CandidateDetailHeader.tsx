@@ -30,11 +30,16 @@ function buildTags(candidate: Candidate): string[] {
 
   const pool = extras.candidate_pool || extras.pool || extras.candidate_type;
   if (pool) tags.push(String(pool));
-  else if (extras.source?.toLowerCase().includes("internal")) tags.push("Internal");
-  else tags.push("Internal");
+  else {
+    const source = typeof extras.source === "string" ? extras.source : "";
+    if (/chrome\s*extension/i.test(source)) tags.push("Chrome Extension");
+    else if (/linkedin/i.test(source)) tags.push("LinkedIn");
+    else if (/internal/i.test(source)) tags.push("Internal");
+    else tags.push(source || "Manual");
+  }
 
   const dept = extras.industry || extras.current_department;
-  if (dept) tags.push(String(dept).toLowerCase());
+  if (dept && typeof dept === "string") tags.push(dept.toLowerCase());
 
   const level = experienceLevel(candidate.experience_years);
   if (level) tags.push(level);

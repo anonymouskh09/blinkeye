@@ -28,7 +28,7 @@ class ImportCandidateRequest(BaseModel):
     profile_image_url: str | None = Field(default=None, max_length=2000)
     email: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
-    source: str = Field(default="linkedin_extension", max_length=50)
+    source: str = Field(default="Chrome Extension", max_length=50)
     imported_via: str | None = Field(default=None, max_length=50)
     job_id: int | None = None
     owner_id: int | None = None

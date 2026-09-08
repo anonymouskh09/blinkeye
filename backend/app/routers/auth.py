@@ -12,8 +12,20 @@ from app.core.security import create_access_token, get_cookie_settings, verify_p
 from app.models.enums import UserStatus
 from app.models.user import User
 from app.schemas.auth import AuthUserResponse, LoginRequest
+from app.services.permission_service import permissions_dict
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _auth_user(user: User) -> dict:
+    perms = permissions_dict(user)
+    return AuthUserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        **perms,
+    ).model_dump()
 
 
 @router.post("/login")
@@ -40,23 +52,16 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         **{k: v for k, v in cookie_settings.items() if k != "max_age"},
     )
 
-    user_data = AuthUserResponse(id=user.id, name=user.name, email=user.email, role=user.role)
     redirect_to = "/dashboard" if user.role.value == "admin" else "/my-jobs"
     return success_response(
-        data={"user": user_data.model_dump(), "redirect_to": redirect_to},
+        data={"user": _auth_user(user), "redirect_to": redirect_to},
         message="Login successful",
     )
 
 
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    user_data = AuthUserResponse(
-        id=current_user.id,
-        name=current_user.name,
-        email=current_user.email,
-        role=current_user.role,
-    )
-    return success_response(data=user_data.model_dump(), message="User retrieved")
+    return success_response(data=_auth_user(current_user), message="User retrieved")
 
 
 @router.post("/logout")

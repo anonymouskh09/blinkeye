@@ -11,6 +11,7 @@ import {
 import toast from "react-hot-toast";
 import PageWrapper from "@/components/layout/PageWrapper";
 import Modal from "@/components/ui/Modal";
+import SlideOver from "@/components/ui/SlideOver";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
@@ -20,9 +21,11 @@ import { TableSkeleton } from "@/components/ui/Skeleton";
 import ClientAvatar, { UserAvatar } from "@/components/clients/ClientAvatar";
 import ClientStageBadge, { CLIENT_STATUS_OPTIONS } from "@/components/clients/ClientStageBadge";
 import ClientsBoard from "@/components/clients/ClientsBoard";
-import { useRequireRole, useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import ListBulkBar from "@/components/ui/ListBulkBar";
 import api from "@/lib/api";
-import { formatDateTimeBullet, cn } from "@/lib/utils";
+import { formatDateTimeBullet, cn, exportToCsv } from "@/lib/utils";
+import { downloadCsvTemplate, parseCsv, pickCsvFile } from "@/lib/csv";
 import type { ApiResponse, Client, ClientStage, PaginatedData, User } from "@/types";
 
 import HeaderActions from "@/components/layout/HeaderActions";
@@ -35,6 +38,7 @@ const emptyForm = {
   industry: "",
   website: "",
   stage: "prospect" as ClientStage,
+  visibility: "public" as "public" | "private",
   selected_team_ids: [] as number[],
   contact_person: "",
   contact_title: "",
@@ -44,9 +48,12 @@ const emptyForm = {
 };
 
 export default function ClientsPage() {
-  useRequireRole("admin");
-  const { user } = useAuth();
+  const { user, canViewClients, canAddClients, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && !canViewClients) router.replace("/my-jobs");
+  }, [authLoading, canViewClients, router]);
   const [view, setView] = useState<ViewMode>("list");
   const [data, setData] = useState<PaginatedData<Client> | null>(null);
   const [board, setBoard] = useState<Record<string, Client[]>>({});
@@ -67,6 +74,8 @@ export default function ClientsPage() {
   const [selectedStatus, setSelectedStatus] = useState<ClientStage>("prospect");
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [importing, setImporting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const toolbarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +174,7 @@ export default function ClientsPage() {
         if (stageFilter) params.stage = stageFilter;
         const res = await api.get<ApiResponse<PaginatedData<Client>>>("/clients", { params });
         setData(res.data.data);
+        setSelectedIds([]);
       }
     } catch {
       toast.error("Failed to load clients");
@@ -218,6 +228,7 @@ export default function ClientsPage() {
         industry: form.industry.trim() || undefined,
         website: form.website.trim() || undefined,
         stage: form.stage,
+        visibility: form.visibility,
         owner_id: user?.id,
         team_user_ids: form.selected_team_ids,
         contact_person: form.contact_person.trim() || undefined,
@@ -265,13 +276,129 @@ export default function ClientsPage() {
     }
   };
 
+  const clientItems = data?.items || [];
+
+  const toggle = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleAll = () => {
+    if (clientItems.length && clientItems.every((c) => selectedIds.includes(c.id))) setSelectedIds([]);
+    else setSelectedIds(clientItems.map((c) => c.id));
+  };
+
+  const allSelected = clientItems.length > 0 && clientItems.every((c) => selectedIds.includes(c.id));
+  const someSelected = clientItems.some((c) => selectedIds.includes(c.id));
+
+  const exportRows = selectedIds.length
+    ? clientItems.filter((c) => selectedIds.includes(c.id))
+    : clientItems;
+
+  const handleExport = () => {
+    if (!exportRows.length) {
+      toast.error("Nothing to export");
+      return;
+    }
+    exportToCsv(
+      "clients.csv",
+      ["id", "company_name", "industry", "location", "stage", "owner", "contact_person", "email", "phone", "visibility"],
+      exportRows.map((c) => [
+        String(c.id),
+        c.company_name || "",
+        c.industry || "",
+        c.location || "",
+        c.stage || "",
+        c.owner_name || "",
+        c.contact_person || "",
+        c.email || "",
+        c.phone || "",
+        c.visibility || "public",
+      ])
+    );
+    toast.success(`Exported ${exportRows.length} client(s)`);
+  };
+
+  const handleTemplate = () => {
+    downloadCsvTemplate(
+      "clients_import_template.csv",
+      ["company_name", "industry", "location", "stage", "visibility", "contact_person", "email", "phone", "website"],
+      ["Acme Corp", "Technology", "Lahore", "prospect", "public", "Jane Doe", "jane@acme.com", "+1234567890", "https://acme.com"]
+    );
+  };
+
+  const handleImport = async () => {
+    if (!canAddClients) {
+      toast.error("You do not have permission to add clients");
+      return;
+    }
+    const file = await pickCsvFile();
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { rows } = parseCsv(text);
+      if (!rows.length) {
+        toast.error("CSV is empty");
+        return;
+      }
+      let ok = 0;
+      let fail = 0;
+      for (const row of rows) {
+        const company = row.company_name || row.name || "";
+        if (!company.trim()) {
+          fail++;
+          continue;
+        }
+        try {
+          await api.post("/clients", {
+            company_name: company.trim(),
+            industry: row.industry || undefined,
+            location: row.location || undefined,
+            stage: row.stage || "prospect",
+            visibility: row.visibility === "private" ? "private" : "public",
+            contact_person: row.contact_person || undefined,
+            email: row.email || undefined,
+            phone: row.phone || undefined,
+            website: row.website || undefined,
+            owner_id: user?.id,
+            team_user_ids: user?.id ? [user.id] : [],
+          });
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      toast.success(`Imported ${ok} client(s)${fail ? `, ${fail} failed` : ""}`);
+      fetchClients();
+    } catch {
+      toast.error("Failed to import CSV");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <PageWrapper flush>
       <div className="content-panel content-panel-flush">
         <div className="panel-header">
           <h1 className="panel-title text-lg sm:text-xl font-bold text-[#1F574A]">Clients</h1>
-          <HeaderActions addLabel="Client" onAddClick={() => setCreateOpen(true)} />
+          <HeaderActions
+            addLabel="Client"
+            onAddClick={canAddClients ? () => setCreateOpen(true) : undefined}
+          />
         </div>
+
+        {view === "list" && (
+          <ListBulkBar
+            selectedCount={selectedIds.length}
+            totalVisible={clientItems.length}
+            onClearSelection={() => setSelectedIds([])}
+            onImportCsv={handleImport}
+            onExportCsv={handleExport}
+            onDownloadTemplate={handleTemplate}
+            importing={importing}
+          />
+        )}
 
         {loading ? (
           <div className="p-6"><TableSkeleton rows={6} cols={8} /></div>
@@ -279,7 +406,7 @@ export default function ClientsPage() {
           <div className="p-6">
             <ClientsBoard stages={board} onUpdate={fetchClients} />
           </div>
-        ) : !data?.items?.length ? (
+        ) : !clientItems.length ? (
           <EmptyState title="No clients found" actionLabel="Create Client" onAction={() => setCreateOpen(true)} />
         ) : (
           <div className="p-4 sm:p-6">
@@ -308,7 +435,15 @@ export default function ClientsPage() {
                   <thead>
                     <tr className="bg-[#F1F4F8] border-b border-slate-200/80 text-[12px] font-semibold text-slate-500 uppercase tracking-wider select-none">
                       <th className="relative pl-4 pr-2 py-3.5 text-left">
-                        <input type="checkbox" className="rounded border-slate-300 text-primary focus:ring-primary" />
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 text-primary focus:ring-primary"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected && !allSelected;
+                          }}
+                          onChange={toggleAll}
+                        />
                         <div
                           onMouseDown={(e) => handleResizeStart("checkbox", e)}
                           className="absolute -right-1.5 top-0 bottom-0 w-3 cursor-col-resize z-30 group select-none flex flex-col items-center justify-start"
@@ -475,7 +610,12 @@ export default function ClientsPage() {
                     {data.items.map((c) => (
                       <tr key={c.id} className="hover:bg-slate-50/80 transition-colors text-[12px]">
                         <td className="pl-4 pr-2 py-3">
-                          <input type="checkbox" className="rounded border-gray-300" />
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={selectedIds.includes(c.id)}
+                            onChange={() => toggle(c.id)}
+                          />
                         </td>
                         <td className="px-3 py-3 overflow-hidden text-ellipsis whitespace-nowrap">
                           <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
@@ -567,7 +707,7 @@ export default function ClientsPage() {
             className="dropdown-item flex items-center gap-2.5"
             onClick={() => {
               closeMenu();
-              router.push(`/jobs/new?client_id=${menuClient.id}`);
+              router.push(`/jobs?create=1&client_id=${menuClient.id}`);
             }}
           >
             <Briefcase className="h-4 w-4 text-gray-400" /> Add Job
@@ -590,7 +730,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <Modal
+      <SlideOver
         open={createOpen}
         onClose={() => {
           setCreateOpen(false);
@@ -598,7 +738,25 @@ export default function ClientsPage() {
           setShowAdvanced(false);
         }}
         title="Create Client"
-        size="lg"
+        subtitle="Add a new company to your pipeline"
+        width="lg"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateOpen(false);
+                setForm(emptyForm);
+                setShowAdvanced(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} loading={saving}>
+              Create Client
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-4">
           {/* 1. Client Name (Required) */}
@@ -644,6 +802,42 @@ export default function ClientsPage() {
               value={form.stage}
               onChange={(e) => setForm({ ...form, stage: e.target.value as ClientStage })}
             />
+          </div>
+
+          {/* Visibility */}
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700">Visibility</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, visibility: "public" })}
+                className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                  form.visibility === "public"
+                    ? "border-[#1F574A] bg-[#1F574A]/5 ring-1 ring-[#1F574A]"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Public</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">All team members can see this client</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, visibility: "private" })}
+                className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                  form.visibility === "private"
+                    ? "border-[#1F574A] bg-[#1F574A]/5 ring-1 ring-[#1F574A]"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Private</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">Only assigned team members can see it</p>
+              </button>
+            </div>
+            {form.visibility === "private" && (
+              <p className="mt-2 text-[11px] text-amber-700">
+                Jobs and candidates for this client stay hidden until you assign members on the Team tab.
+              </p>
+            )}
           </div>
 
           {/* 4. Client Owner & Client Team */}
@@ -761,17 +955,8 @@ export default function ClientsPage() {
               </div>
             )}
           </div>
-
-          <div className="flex gap-3 pt-2 justify-end">
-            <Button variant="outline" onClick={() => { setCreateOpen(false); setForm(emptyForm); setShowAdvanced(false); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} loading={saving}>
-              Create Client
-            </Button>
-          </div>
         </div>
-      </Modal>
+      </SlideOver>
 
       <Modal open={!!statusClient} onClose={() => setStatusClient(null)} title="Change Status" size="sm">
         <div className="space-y-4">

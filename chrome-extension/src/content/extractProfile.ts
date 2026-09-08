@@ -4,6 +4,7 @@ import { aggressiveEnrich } from "./aggressiveScrape";
 import { cleanText, cleanMultiline } from "../utils/text";
 import { normalizeLinkedInUrl } from "../utils/normalizeUrl";
 import { safeImageUrl } from "../utils/sanitize";
+import { debugLog, normalizeCandidateProfile, recomputeSectionStatuses } from "../utils/normalizeProfile";
 import type { CandidateProfile, ExtractionResult } from "../types";
 
 // Pure extraction against a provided Document, so it can be unit-tested with
@@ -428,6 +429,15 @@ export function extractProfile(doc: Document, pageUrl: string): ExtractionResult
 
   // LinkedIn A/B layouts often break class selectors — fill gaps aggressively.
   const enriched = aggressiveEnrich(doc, profile);
+  const normalized = normalizeCandidateProfile(enriched);
+  normalized.sectionStatuses = recomputeSectionStatuses(normalized, {
+    experience: sectionPresenceHint(doc, ["experience"]),
+    education: sectionPresenceHint(doc, ["education"]),
+    skills: sectionPresenceHint(doc, ["skills"]),
+    certifications: sectionPresenceHint(doc, ["licenses_and_certifications", "certifications"]),
+    languages: sectionPresenceHint(doc, ["languages"]),
+    about: sectionPresenceHint(doc, ["about"]),
+  });
 
   const scalarKeys: (keyof CandidateProfile)[] = [
     "fullName",
@@ -437,13 +447,35 @@ export function extractProfile(doc: Document, pageUrl: string): ExtractionResult
     "linkedinUrl",
     "profileImageUrl",
   ];
-  const missingFields = scalarKeys.filter((key) => !enriched[key]);
+  const missingFields = scalarKeys.filter((key) => !normalized[key]);
+
+  debugLog("extracted profile", {
+    fullName: normalized.fullName,
+    experiences: normalized.experiences.length,
+    educations: normalized.educations.length,
+    skills: normalized.skills.length,
+    certifications: normalized.certifications.length,
+    languages: normalized.languages.length,
+    sectionStatuses: normalized.sectionStatuses,
+  });
 
   return {
-    profile: enriched,
+    profile: normalized,
     missingFields,
     extractedAt: new Date().toISOString(),
   };
+}
+
+function sectionPresenceHint(doc: Document, keys: string[]): boolean {
+  for (const key of keys) {
+    if (doc.getElementById(key)) return true;
+    if (doc.querySelector(`section[data-section="${key}"]`)) return true;
+  }
+  for (const h of Array.from(doc.querySelectorAll("h2, h3"))) {
+    const t = cleanText(h.textContent).toLowerCase();
+    if (keys.some((k) => t === k || t.startsWith(`${k} `))) return true;
+  }
+  return false;
 }
 
 /** Wait until the top-card name appears (LinkedIn is a slow SPA). */

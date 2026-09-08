@@ -85,30 +85,77 @@ function sectionPresence(doc: Document, keys: string[]): boolean {
   return sectionRoot(doc, keys) !== null;
 }
 
+const MONTH_RE =
+  "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+
+/**
+ * LinkedIn often glues fields when aria-hidden spans are missing:
+ * "Software EngineerJul 2022 - Mar 2024 · 1 yr 9 mosTokyo, Japan..."
+ */
+function unglueExperienceBlob(text: string): string[] {
+  let t = cleanText(text);
+  if (!t) return [];
+  // Title|Date
+  t = t.replace(
+    new RegExp(`([A-Za-z0-9)&+./])(?=(?:${MONTH_RE}\\.?\\s+\\d{4}|\\d{4}\\s*[-–—]))`, "gi"),
+    "$1\n",
+  );
+  // Duration|Location (e.g. "9 mosTokyo")
+  t = t.replace(/((?:yr|yrs|mo|mos|year|years|month|months)\b)\s*(?=[A-Z])/gi, "$1\n");
+  // Location|skills fluff
+  t = t.replace(/\s+(?=LinkedIn helped|Information Technology|\+\d+\s+skills)/gi, "\n");
+  return t
+    .split("\n")
+    .map((p) => cleanText(p))
+    .filter((p) => p.length >= 2);
+}
+
+function pushLeafLine(lines: string[], raw: string | null | undefined, limit: number): boolean {
+  const text = cleanText(raw);
+  if (!text || text.length < 2 || text.length > 500) return lines.length >= limit;
+  if (SKIP_LINE.test(text)) return lines.length >= limit;
+
+  // One glued blob → split into title / dates / location
+  if (
+    text.length > 40 &&
+    new RegExp(`${MONTH_RE}\\.?\\s+\\d{4}`, "i").test(text) &&
+    !/^\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(text)
+  ) {
+    for (const part of unglueExperienceBlob(text)) {
+      if (lines.includes(part)) continue;
+      lines.push(part);
+      if (lines.length >= limit) return true;
+    }
+    return lines.length >= limit;
+  }
+
+  if (lines.includes(text)) return lines.length >= limit;
+  lines.push(text);
+  return lines.length >= limit;
+}
+
 /** Prefer LinkedIn's aria-hidden leaf spans (visible text clone). */
 function leafLines(root: Element, limit = 14): string[] {
   const lines: string[] = [];
-  const push = (raw: string | null | undefined) => {
-    const text = cleanText(raw);
-    if (!text || text.length < 2 || text.length > 400) return;
-    if (SKIP_LINE.test(text)) return;
-    if (lines.includes(text)) return;
-    lines.push(text);
-  };
 
   for (const node of Array.from(root.querySelectorAll("span[aria-hidden='true']"))) {
     if (node.querySelector("span[aria-hidden='true']")) continue;
-    push(node.textContent);
-    if (lines.length >= limit) return lines;
+    if (pushLeafLine(lines, node.textContent, limit)) return lines;
   }
 
   if (lines.length < 2) {
     const raw = cleanMultiline(root.textContent);
     for (const part of raw.split("\n")) {
-      push(part);
-      if (lines.length >= limit) break;
+      if (pushLeafLine(lines, part, limit)) break;
     }
   }
+
+  // Still one glued line — force unglue
+  if (lines.length === 1 && lines[0].length > 40) {
+    const parts = unglueExperienceBlob(lines[0]);
+    if (parts.length > 1) return parts.slice(0, limit);
+  }
+
   return lines;
 }
 
@@ -127,43 +174,82 @@ function parseDateRange(text: string): { start_date?: string; end_date?: string;
   };
 }
 
-function statusFor(present: boolean, count: number, partialThreshold = 1): SectionAvailability {
-  if (!present && count === 0) return "not_available";
-  if (count === 0) return "partial";
-  if (count <= partialThreshold && present) {
-    // A single visible item often means the rest is behind "Show all" — mark partial.
-    return count >= 1 ? "detected" : "partial";
-  }
-  return "detected";
+function isNonCompanyLine(line: string): boolean {
+  if (!line) return true;
+  // LinkedIn uses "Self-employed" as the company name for freelancers
+  if (/^self-?employed$/i.test(line)) return false;
+  if (EMP_TYPE_RE.test(line)) return true;
+  if (DURATION_RE.test(line)) return true;
+  if (parseDateRange(line).start_date) return true;
+  if (/on-site|remote|hybrid|followers?|connections?/i.test(line)) return true;
+  return false;
+}
+
+function statusFor(present: boolean, count: number): SectionAvailability {
+  if (count > 0) return "detected";
+  if (present) return "partial";
+  return "not_available";
 }
 
 function parseExperienceItem(item: Element): ExperienceItem | null {
-  const lines = leafLines(item, 14);
-  if (lines.length < 2) return null;
+  let lines = leafLines(item, 14);
+  if (lines.length < 1) return null;
+
+  if (lines[0] && /[a-z](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(lines[0])) {
+    lines = [...unglueExperienceBlob(lines[0]), ...lines.slice(1)];
+  }
+
+  const link =
+    (item.querySelector("a[href*='/company/']") as HTMLAnchorElement | null) ||
+    (item.querySelector("a[href*='/school/']") as HTMLAnchorElement | null);
+  const company_url = link?.href ? link.href.split("?")[0] : undefined;
+  const linkCompany = cleanText(
+    link?.querySelector("span[aria-hidden='true']")?.textContent || link?.textContent || "",
+  ).replace(/\s*[·•].*$/, "").trim();
 
   let title = lines[0];
-  let company = lines[1].replace(/\s*[·•].*$/, "").trim();
+  if (title && parseDateRange(title).start_date) {
+    const parts = unglueExperienceBlob(title);
+    title = parts[0] || title;
+    if (parts.length > 1) lines = [...parts, ...lines.slice(1)];
+  }
+  let company = linkCompany || (lines[1] ? lines[1].replace(/\s*[·•].*$/, "").trim() : "");
   let employment_type = "";
   let dateLine = "";
   let duration = "";
   let location = "";
   let description = "";
 
-  // Company line sometimes embeds employment type: "Acme · Full-time"
-  const companyEmp = lines[1].match(/[·•]\s*(.+)$/);
+  const companyEmp = (lines[1] || "").match(/[·•]\s*(.+)$/);
   if (companyEmp && EMP_TYPE_RE.test(companyEmp[1].trim())) {
     employment_type = companyEmp[1].trim();
   }
 
-  for (let i = 2; i < lines.length; i++) {
+  if (isNonCompanyLine(company) && !linkCompany) {
+    if (EMP_TYPE_RE.test(company)) employment_type = company;
+    company = "";
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].replace(/\s*[·•].*$/, "").trim();
+      if (line === title) continue;
+      if (isNonCompanyLine(line)) {
+        if (!employment_type && EMP_TYPE_RE.test(line)) employment_type = line;
+        continue;
+      }
+      company = line;
+      break;
+    }
+  }
+
+  for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
+    if (line === title || line === company) continue;
+    if (linkCompany && line === linkCompany) continue;
     if (!employment_type && EMP_TYPE_RE.test(line)) {
       employment_type = line;
       continue;
     }
     if (!dateLine && parseDateRange(line).start_date) {
       dateLine = line;
-      // Duration may be on same line after ·
       const durPart = line.split(/[·•]/).slice(1).join("·").trim();
       if (DURATION_RE.test(durPart)) duration = durPart;
       continue;
@@ -172,8 +258,8 @@ function parseExperienceItem(item: Element): ExperienceItem | null {
       duration = line;
       continue;
     }
-    if (dateLine && !location && line.length <= 100 && !parseDateRange(line).start_date) {
-      if (DURATION_RE.test(line)) continue;
+    if (dateLine && !location && line.length <= 120 && !parseDateRange(line).start_date) {
+      if (DURATION_RE.test(line) || EMP_TYPE_RE.test(line)) continue;
       location = line;
       continue;
     }
@@ -183,19 +269,31 @@ function parseExperienceItem(item: Element): ExperienceItem | null {
     }
   }
 
-  if (/full-?time|part-?time|internship|contract|self-?employed/i.test(title) && company) {
+  // Title/company swap when LinkedIn puts company first
+  if (linkCompany && title === linkCompany && lines[1] && !EMP_TYPE_RE.test(lines[1])) {
+    title = lines[1].replace(/\s*[·•].*$/, "").trim();
+    company = linkCompany;
+  }
+
+  if (/full-?time|part-?time|internship|contract|self-?employed/i.test(title) && company && !EMP_TYPE_RE.test(company)) {
     const swap = title;
     title = company;
     company = swap.replace(/\s*[·•].*$/, "").trim();
   }
 
-  if (!title || !company) return null;
+  if (!title) return null;
+  if (!company) company = linkCompany || "Unknown";
   if (/^(experience|about|education|skills)$/i.test(title)) return null;
+  // Don't wipe legitimate "Self-employed" company names
+  if (EMP_TYPE_RE.test(company) && !/^self-?employed$/i.test(company)) {
+    company = linkCompany || "Unknown";
+  }
 
   const dates = parseDateRange(dateLine);
   return {
     title,
     company,
+    company_url,
     employment_type: employment_type || undefined,
     location: location || undefined,
     description: description || undefined,
@@ -205,9 +303,13 @@ function parseExperienceItem(item: Element): ExperienceItem | null {
 }
 
 function parseEducationItem(item: Element): EducationItem | null {
+  const schoolLink = item.querySelector("a[href*='/school/']") as HTMLAnchorElement | null;
+  const schoolFromLink = cleanText(
+    schoolLink?.querySelector("span[aria-hidden='true']")?.textContent || schoolLink?.textContent || "",
+  );
+
   const lines = leafLines(item, 12);
-  if (!lines.length) return null;
-  const school = lines[0];
+  const school = schoolFromLink || lines[0] || "";
   if (!school || /^education$/i.test(school)) return null;
 
   let degree = "";
@@ -216,10 +318,10 @@ function parseEducationItem(item: Element): EducationItem | null {
   let location = "";
   let description = "";
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === school || (schoolFromLink && line === schoolFromLink)) continue;
     if (!degree && !parseDateRange(line).start_date) {
-      // "Bachelor of Science, Computer Science"
       const parts = line.split(",").map((p) => p.trim()).filter(Boolean);
       degree = parts[0] || line;
       if (parts.length > 1) field_of_study = parts.slice(1).join(", ");
@@ -325,7 +427,207 @@ function listItems(section: Element): Element[] {
       return !parentEntity || parentEntity === el;
     });
   }
-  return Array.from(section.querySelectorAll("ul > li")).slice(0, 20);
+  return Array.from(section.querySelectorAll("ul > li")).slice(0, 30);
+}
+
+/**
+ * Nested position rows under a company-group card.
+ * Only real sub-list <li>s count — not every nested profile-component-entity
+ * (standalone jobs often have nested entities for media/description).
+ */
+function nestedPositionItems(group: Element): Element[] {
+  const roles: Element[] = [];
+  for (const ul of Array.from(group.querySelectorAll("ul"))) {
+    if (!group.contains(ul)) continue;
+    // Host list-item of this ul: must be the group card itself.
+    // Skips uls buried inside a nested role <li> (media / description lists).
+    const hostLi = ul.parentElement?.closest("li");
+    if (hostLi && hostLi !== group) continue;
+
+    for (const child of Array.from(ul.children)) {
+      if (!(child instanceof Element)) continue;
+      if (
+        child.matches(
+          "li.pvs-list__paged-list-item, li.artdeco-list__item, li, div[data-view-name='profile-component-entity']",
+        )
+      ) {
+        roles.push(child);
+      }
+    }
+  }
+  return roles.filter((el, i, arr) => arr.indexOf(el) === i);
+}
+
+function roleLooksLikePosition(role: Element): boolean {
+  const lines = leafLines(role, 10);
+  if (!lines.length) return false;
+  return lines.some((l) => !!parseDateRange(l).start_date);
+}
+
+/**
+ * True when this top-level card is a company with nested roles,
+ * not a standalone title+company job.
+ */
+function isMultiPositionCompany(group: Element, nested: Element[]): boolean {
+  const positions = nested.filter(roleLooksLikePosition);
+  if (positions.length === 0) return false;
+  if (positions.length >= 2) return true;
+
+  const companyLink = group.querySelector("a[href*='/company/'], a[href*='/school/']");
+  const outerLines = leafLines(group, 8);
+  const nestedLines = new Set(leafLines(positions[0], 8).map((l) => l.toLowerCase()));
+  const outerOnly = outerLines.filter((l) => !nestedLines.has(l.toLowerCase()));
+  const outerHasOwnDate = outerOnly.some((l) => !!parseDateRange(l).start_date);
+  if (outerHasOwnDate && !companyLink) return false;
+  if (companyLink && !outerHasOwnDate) return true;
+  if (positions.length === 1 && outerOnly.length >= 1) {
+    const nestedTitle = leafLines(positions[0], 1)[0] || "";
+    const outerFirst = outerOnly[0] || "";
+    if (outerFirst && nestedTitle && outerFirst.toLowerCase() !== nestedTitle.toLowerCase()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function stripCompanySuffix(name: string): string {
+  return name
+    .replace(/\s*[·•].*$/, "")
+    .replace(/\s*,\s*(Full-?time|Part-?time|Contract|Internship)\s*$/i, "")
+    .trim();
+}
+
+function companyFromGroup(group: Element, childRoles: Element[]): { company: string; company_url?: string } {
+  const link =
+    (group.querySelector("a[href*='/company/']") as HTMLAnchorElement | null) ||
+    (group.querySelector("a[href*='/school/']") as HTMLAnchorElement | null);
+  const company_url = link?.href ? link.href.split("?")[0] : undefined;
+
+  const linkText = link
+    ? cleanText(link.querySelector("span[aria-hidden='true']")?.textContent || link.textContent)
+    : "";
+  if (linkText && linkText.length >= 2) {
+    return { company: stripCompanySuffix(linkText), company_url };
+  }
+
+  // Header spans only — exclude anything inside nested role rows
+  for (const span of Array.from(group.querySelectorAll("span[aria-hidden='true']"))) {
+    if (span.querySelector("span[aria-hidden='true']")) continue;
+    if (childRoles.some((role) => role.contains(span))) continue;
+    const line = cleanText(span.textContent);
+    if (!line || line.length < 2) continue;
+    if (parseDateRange(line).start_date) continue;
+    if (EMP_TYPE_RE.test(line) || DURATION_RE.test(line)) continue;
+    if (/^(experience|show all|see more|full-?time|part-?time)$/i.test(line)) continue;
+    if (/^\d+\s*(yr|yrs|mo|mos)\b/i.test(line)) continue;
+    const company = stripCompanySuffix(line);
+    if (company.length >= 2) return { company, company_url };
+  }
+
+  const childFirst = new Set(
+    childRoles.flatMap((role) => leafLines(role, 4)).map((l) => l.toLowerCase()),
+  );
+  for (const line of leafLines(group, 12)) {
+    if (childFirst.has(line.toLowerCase())) continue;
+    if (parseDateRange(line).start_date) continue;
+    if (EMP_TYPE_RE.test(line) || DURATION_RE.test(line)) continue;
+    if (/^(experience|show all|see more)$/i.test(line)) continue;
+    const company = stripCompanySuffix(line);
+    if (company.length >= 2) return { company, company_url };
+  }
+  return { company: "Unknown", company_url };
+}
+
+function parseRoleUnderCompany(
+  role: Element,
+  company: string,
+  company_url?: string,
+): ExperienceItem | null {
+  let lines = leafLines(role, 14);
+  if (!lines.length) return null;
+
+  // Expand any remaining glued title line
+  if (lines[0] && lines[0].length > 40 && parseDateRange(lines[0]).start_date) {
+    lines = [...unglueExperienceBlob(lines[0]), ...lines.slice(1)];
+  } else if (lines[0] && /[a-z](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(lines[0])) {
+    lines = [...unglueExperienceBlob(lines[0]), ...lines.slice(1)];
+  }
+
+  let title = lines[0];
+  if (title.toLowerCase() === company.toLowerCase() && lines[1]) {
+    title = lines[1];
+  }
+  // Title must not include the date range
+  if (title && parseDateRange(title).start_date) {
+    const parts = unglueExperienceBlob(title);
+    title = parts[0] || title;
+    if (parts.length > 1) lines = [...parts, ...lines.slice(1)];
+  }
+  if (!title || /^(experience|about|education|skills)$/i.test(title)) return null;
+  if (EMP_TYPE_RE.test(title)) return null;
+
+  let employment_type = "";
+  let dateLine = "";
+  let duration = "";
+  let location = "";
+  let description = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === title) continue;
+    if (line.toLowerCase() === company.toLowerCase()) continue;
+    if (!employment_type && EMP_TYPE_RE.test(line)) {
+      employment_type = line;
+      continue;
+    }
+    if (!employment_type) {
+      const emp = line.match(/[·•]\s*(.+)$/);
+      if (emp && EMP_TYPE_RE.test(emp[1].trim())) employment_type = emp[1].trim();
+    }
+    if (!dateLine && parseDateRange(line).start_date) {
+      dateLine = line;
+      const durPart = line.split(/[·•]/).slice(1).join("·").trim();
+      if (DURATION_RE.test(durPart)) duration = durPart;
+      continue;
+    }
+    if (dateLine && !duration && DURATION_RE.test(line)) {
+      duration = line;
+      continue;
+    }
+    if (dateLine && !location && line.length <= 120 && !parseDateRange(line).start_date) {
+      if (DURATION_RE.test(line) || EMP_TYPE_RE.test(line)) continue;
+      location = line;
+      continue;
+    }
+    if (dateLine && !description && line.length > 24) {
+      description = line;
+      break;
+    }
+  }
+
+  return {
+    title,
+    company,
+    company_url,
+    employment_type: employment_type || undefined,
+    location: location || undefined,
+    description: description || undefined,
+    duration: duration || undefined,
+    ...parseDateRange(dateLine),
+  };
+}
+
+function pushExperience(
+  out: ExperienceItem[],
+  seen: Set<string>,
+  exp: ExperienceItem | null,
+): boolean {
+  if (!exp?.title || !exp.company) return false;
+  const key = `${exp.title}|${exp.company}|${exp.start_date || ""}`.toLowerCase();
+  if (seen.has(key)) return false;
+  seen.add(key);
+  out.push(exp);
+  return true;
 }
 
 function extractExperiences(doc: Document): ExperienceItem[] {
@@ -333,15 +635,56 @@ function extractExperiences(doc: Document): ExperienceItem[] {
   if (!section) return [];
   const out: ExperienceItem[] = [];
   const seen = new Set<string>();
-  for (const item of listItems(section)) {
+  const topLevel = listItems(section);
+
+  let standaloneCount = 0;
+  let nestedPositionCount = 0;
+  let companyGroupCount = 0;
+
+  for (const item of topLevel) {
+    const nested = nestedPositionItems(item);
+    const datedNested = nested.filter(roleLooksLikePosition);
+
+    if (isMultiPositionCompany(item, nested)) {
+      companyGroupCount += 1;
+      const { company, company_url } = companyFromGroup(item, datedNested);
+      let addedFromNested = 0;
+      for (const role of datedNested) {
+        const exp = parseRoleUnderCompany(role, company, company_url);
+        if (pushExperience(out, seen, exp)) {
+          addedFromNested += 1;
+          nestedPositionCount += 1;
+        }
+        if (out.length >= 40) break;
+      }
+      // Never drop a card if nested parse failed
+      if (addedFromNested === 0) {
+        const exp = parseExperienceItem(item);
+        if (pushExperience(out, seen, exp)) standaloneCount += 1;
+      }
+      if (out.length >= 40) break;
+      continue;
+    }
+
     const exp = parseExperienceItem(item);
-    if (!exp) continue;
-    const key = `${exp.title}|${exp.company}|${exp.start_date || ""}`.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(exp);
-    if (out.length >= 15) break;
+    if (pushExperience(out, seen, exp)) standaloneCount += 1;
+    if (out.length >= 40) break;
   }
+
+  try {
+    // eslint-disable-next-line no-console
+    console.info("[RecruitPro] experience extraction", {
+      topLevelEntities: topLevel.length,
+      companyGroups: companyGroupCount,
+      standalonePositions: standaloneCount,
+      nestedPositions: nestedPositionCount,
+      finalCount: out.length,
+      titles: out.map((e) => `${e.title} @ ${e.company}`),
+    });
+  } catch {
+    /* ignore */
+  }
+
   return out;
 }
 
@@ -350,14 +693,34 @@ function extractEducations(doc: Document): EducationItem[] {
   if (!section) return [];
   const out: EducationItem[] = [];
   const seen = new Set<string>();
-  for (const item of listItems(section)) {
+
+  let items = listItems(section);
+  if (!items.length) {
+    // Fallback: any entity / school card inside Education
+    items = Array.from(
+      section.querySelectorAll(
+        "div[data-view-name='profile-component-entity'], li, a[href*='/school/']",
+      ),
+    ).filter((el) => {
+      if (el.tagName === "A") {
+        const parent = el.closest("li, div[data-view-name='profile-component-entity']");
+        return !parent; // only bare links if not already covered
+      }
+      const parentEntity = el.parentElement?.closest(
+        "li.pvs-list__paged-list-item, li.artdeco-list__item, div[data-view-name='profile-component-entity']",
+      );
+      return !parentEntity || parentEntity === el;
+    });
+  }
+
+  for (const item of items) {
     const edu = parseEducationItem(item);
     if (!edu) continue;
     const key = `${edu.school}|${edu.degree || ""}`.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(edu);
-    if (out.length >= 10) break;
+    if (out.length >= 15) break;
   }
   return out;
 }
@@ -475,7 +838,7 @@ export function extractSections(doc: Document): SectionExtraction {
   const sectionStatuses: SectionStatuses = {
     experience: statusFor(sectionPresence(doc, ["experience"]), experiences.length),
     education: statusFor(sectionPresence(doc, ["education"]), educations.length),
-    skills: statusFor(sectionPresence(doc, ["skills"]), skills.length, 2),
+    skills: statusFor(sectionPresence(doc, ["skills"]), skills.length),
     certifications: statusFor(
       sectionPresence(doc, ["licenses_and_certifications", "certifications"]),
       certifications.length,

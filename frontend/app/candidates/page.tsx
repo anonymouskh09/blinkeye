@@ -2,23 +2,22 @@
 
 import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import {
-  Plus, ChevronDown, Filter, RefreshCw, MoreVertical,
-  Users, FolderOpen, Sparkles,
-} from "lucide-react";
+import { ChevronDown, Users, FolderOpen, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import PageWrapper from "@/components/layout/PageWrapper";
-import CandidatesListTable from "@/components/candidates/CandidatesListTable";
+import CandidatesListTable, { candidateRef } from "@/components/candidates/CandidatesListTable";
 import CreateCandidateModal from "@/components/candidates/CreateCandidateModal";
 import FoldersTab from "@/components/candidates/FoldersTab";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import ListBulkBar from "@/components/ui/ListBulkBar";
 import Pagination from "@/components/ui/Table";
 import EmptyState from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import api from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, exportToCsv } from "@/lib/utils";
+import { downloadCsvTemplate, parseCsv, pickCsvFile } from "@/lib/csv";
 import HeaderActions from "@/components/layout/HeaderActions";
 import type { ApiResponse, Candidate, PaginatedData } from "@/types";
 
@@ -48,8 +47,10 @@ function CandidatesPageContent() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [startWithForm, setStartWithForm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [importing, setImporting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchCandidates = useCallback(async () => {
@@ -60,6 +61,7 @@ function CandidatesPageContent() {
       if (locationFilter) params.location = locationFilter;
       const res = await api.get<ApiResponse<PaginatedData<Candidate>>>("/candidates", { params });
       setData(res.data.data);
+      setSelectedIds([]);
     } catch {
       toast.error("Failed to load candidates");
     } finally {
@@ -70,19 +72,120 @@ function CandidatesPageContent() {
   useEffect(() => {
     const t = searchParams.get("tab") as SubTab | null;
     if (t && SUB_TABS.some((x) => x.id === t)) setSubTab(t);
-  }, [searchParams]);
+    if (searchParams.get("create") === "form") {
+      setStartWithForm(true);
+      setCreateOpen(true);
+      router.replace("/candidates", { scroll: false });
+    }
+  }, [searchParams, router]);
 
-  useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        /* noop */
+      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  const items = data?.items || [];
   const totalCount = data?.total ?? 0;
+
+  const toggle = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleAll = () => {
+    if (items.length && items.every((c) => selectedIds.includes(c.id))) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(items.map((c) => c.id));
+    }
+  };
+
+  const exportRows = selectedIds.length
+    ? items.filter((c) => selectedIds.includes(c.id))
+    : items;
+
+  const handleExport = () => {
+    if (!exportRows.length) {
+      toast.error("Nothing to export");
+      return;
+    }
+    exportToCsv(
+      "candidates.csv",
+      ["reference", "name", "email", "phone", "location", "current_job_title", "current_company", "notice_period", "expected_salary"],
+      exportRows.map((c) => [
+        candidateRef(c.id),
+        c.name || "",
+        c.email || "",
+        c.phone || "",
+        c.location || "",
+        c.current_job_title || "",
+        c.current_company || "",
+        c.notice_period || "",
+        c.expected_salary != null ? String(c.expected_salary) : "",
+      ])
+    );
+    toast.success(`Exported ${exportRows.length} candidate(s)`);
+  };
+
+  const handleTemplate = () => {
+    downloadCsvTemplate(
+      "candidates_import_template.csv",
+      ["name", "email", "phone", "location", "current_job_title", "current_company", "notice_period", "expected_salary"],
+      ["Jane Doe", "jane@example.com", "+1234567890", "Lahore", "Developer", "Acme", "2 weeks", "120000"]
+    );
+  };
+
+  const handleImport = async () => {
+    const file = await pickCsvFile();
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { rows } = parseCsv(text);
+      if (!rows.length) {
+        toast.error("CSV is empty");
+        return;
+      }
+      let ok = 0;
+      let fail = 0;
+      for (const row of rows) {
+        const name = row.name || row.full_name || "";
+        if (!name.trim()) {
+          fail++;
+          continue;
+        }
+        try {
+          const fd = new FormData();
+          fd.append("name", name.trim());
+          fd.append("email", (row.email || "").trim());
+          if (row.phone) fd.append("phone", row.phone);
+          if (row.location) fd.append("location", row.location);
+          if (row.current_job_title) fd.append("current_job_title", row.current_job_title);
+          if (row.current_company) fd.append("current_company", row.current_company);
+          if (row.notice_period) fd.append("notice_period", row.notice_period);
+          if (row.expected_salary) fd.append("expected_salary", row.expected_salary);
+          await api.post("/candidates", fd);
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      toast.success(`Imported ${ok} candidate(s)${fail ? `, ${fail} failed` : ""}`);
+      fetchCandidates();
+    } catch {
+      toast.error("Failed to import CSV");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <PageWrapper flush>
@@ -114,11 +217,20 @@ function CandidatesPageContent() {
 
         {subTab === "candidates" && (
           <>
+            <ListBulkBar
+              selectedCount={selectedIds.length}
+              totalVisible={items.length}
+              onClearSelection={() => setSelectedIds([])}
+              onImportCsv={handleImport}
+              onExportCsv={handleExport}
+              onDownloadTemplate={handleTemplate}
+              importing={importing}
+            />
 
             <div className="px-6 py-5">
               {loading ? (
                 <TableSkeleton rows={6} cols={10} />
-              ) : !data?.items?.length ? (
+              ) : !items.length ? (
                 <EmptyState
                   title="No candidates found"
                   description="Create a candidate to start building your talent pool."
@@ -127,8 +239,13 @@ function CandidatesPageContent() {
                 />
               ) : (
                 <>
-                  <CandidatesListTable candidates={data.items} />
-                  <Pagination page={page} totalPages={data.total_pages} onPageChange={setPage} />
+                  <CandidatesListTable
+                    candidates={items}
+                    selectedIds={selectedIds}
+                    onToggle={toggle}
+                    onToggleAll={toggleAll}
+                  />
+                  <Pagination page={page} totalPages={data?.total_pages || 1} onPageChange={setPage} />
                 </>
               )}
             </div>
@@ -143,20 +260,58 @@ function CandidatesPageContent() {
               <Sparkles className="h-8 w-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1.5">AI Advanced Search</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">Search candidates using natural language and AI-powered matching.</p>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Search candidates using natural language and AI-powered matching.
+            </p>
           </div>
         )}
       </div>
 
-      <CreateCandidateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={fetchCandidates} />
+      <CreateCandidateModal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setStartWithForm(false);
+        }}
+        onCreated={fetchCandidates}
+        startWithForm={startWithForm}
+      />
 
       <Modal open={filterOpen} onClose={() => setFilterOpen(false)} title="Filters" size="sm">
         <div className="space-y-4">
-          <Input label="Search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, title, email..." />
-          <Input label="Location" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} placeholder="e.g. Lahore, Pakistan" />
+          <Input
+            label="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, title, email..."
+          />
+          <Input
+            label="Location"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            placeholder="e.g. Lahore, Pakistan"
+          />
           <div className="flex gap-2 pt-2">
-            <Button onClick={() => { setFilterOpen(false); setPage(1); fetchCandidates(); }}>Apply</Button>
-            <Button variant="outline" onClick={() => { setSearch(""); setLocationFilter(""); setPage(1); setFilterOpen(false); }}>Clear</Button>
+            <Button
+              onClick={() => {
+                setFilterOpen(false);
+                setPage(1);
+                fetchCandidates();
+              }}
+            >
+              Apply
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearch("");
+                setLocationFilter("");
+                setPage(1);
+                setFilterOpen(false);
+              }}
+            >
+              Clear
+            </Button>
           </div>
         </div>
       </Modal>

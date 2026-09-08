@@ -55,7 +55,7 @@ describe("toImportPayload", () => {
     );
     expect(payload.linkedinUrl).toBe("https://www.linkedin.com/in/jane-doe");
     expect(payload.email).toBe("jane@example.com");
-    expect(payload.source).toBe("linkedin_extension");
+    expect(payload.source).toBe("Chrome Extension");
     expect(payload.importedVia).toBe("chrome_extension");
     expect(payload.jobId).toBe(5);
     expect(payload.tags).toBeUndefined();
@@ -78,5 +78,21 @@ describe("toImportPayload", () => {
     expect(payload.importedVia).toBe("chrome_extension_cv");
     expect(payload.currentJobTitle).toBe("Eng");
     expect(payload.currentCompany).toBe("Acme");
+  });
+
+  it("drops invalid nested rows and dedupes skills", () => {
+    const payload = toImportPayload(
+      profile({
+        experiences: [
+          { title: "Eng", company: "Acme" },
+          { title: "", company: "NoTitle" },
+          { title: "Eng", company: "Acme" },
+        ],
+        skills: ["React", "react", "  Node  "],
+      }),
+      {},
+    );
+    expect(payload.experiences).toHaveLength(1);
+    expect(payload.skills).toEqual(["React", "Node"]);
   });
 });

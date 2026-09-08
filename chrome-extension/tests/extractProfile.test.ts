@@ -207,4 +207,230 @@ describe("extractProfile", () => {
     expect(profile.certifications).toEqual([]);
     expect(profile.languages).toEqual([]);
   });
+
+  it("extracts nested company roles with company name when fields are glued", () => {
+    // Real LinkedIn sometimes concatenates title+dates without separators in textContent
+    const doc = docFrom(`<!doctype html><html><body><main>
+      <section><h1>Qualitex Profile</h1></section>
+      <section>
+        <h2>Experience</h2>
+        <ul class="pvs-list">
+          <li class="pvs-list__paged-list-item">
+            <div data-view-name="profile-component-entity">
+              <a href="https://www.linkedin.com/company/qualitex/">
+                <span aria-hidden="true">Qualitex Trading Co. Ltd</span>
+              </a>
+              <span aria-hidden="true">Full-time</span>
+              <span aria-hidden="true">2 yrs 11 mos</span>
+              <ul class="pvs-list">
+                <li class="pvs-list__paged-list-item">
+                  <div>Software EngineerJul 2022 - Mar 2024 · 1 yr 9 mosTokyo, Japan Information Technology, JavaScript and +15 skills</div>
+                </li>
+                <li class="pvs-list__paged-list-item">
+                  <div>Software EngineerMay 2021 - Jun 2022 · 1 yr 2 mosGujranwala, Punjab, Pakistan</div>
+                </li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </main></body></html>`);
+    const { profile } = extractProfile(doc, "https://www.linkedin.com/in/qualitex-test");
+    expect(profile.experiences.length).toBe(2);
+    expect(profile.experiences.every((e) => /Qualitex/i.test(e.company))).toBe(true);
+    expect(profile.experiences[0]?.title).toMatch(/^Software Engineer$/i);
+    expect(profile.experiences[1]?.title).toMatch(/^Software Engineer$/i);
+    expect(profile.experiences[0]?.title).not.toMatch(/Jul 2022/i);
+  });
+
+  it("extracts nested multi-role company experiences", () => {
+    const doc = docFrom(`<!doctype html><html><body><main>
+      <section><h1>Nested Exp</h1></section>
+      <section>
+        <h2>Experience</h2>
+        <ul>
+          <li class="pvs-list__paged-list-item">
+            <a href="https://www.linkedin.com/company/acme/"><span aria-hidden="true">Acme Corp</span></a>
+            <ul class="pvs-list">
+              <li class="pvs-list__paged-list-item">
+                <span aria-hidden="true">Senior Engineer</span>
+                <span aria-hidden="true">Full-time</span>
+                <span aria-hidden="true">Jan 2022 - Present</span>
+                <span aria-hidden="true">Berlin, Germany</span>
+              </li>
+              <li class="pvs-list__paged-list-item">
+                <span aria-hidden="true">Engineer</span>
+                <span aria-hidden="true">Full-time</span>
+                <span aria-hidden="true">Mar 2020 - Dec 2021</span>
+              </li>
+            </ul>
+          </li>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Intern</span>
+            <span aria-hidden="true">Startup Inc · Internship</span>
+            <span aria-hidden="true">Jun 2019 - Aug 2019</span>
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Education</h2>
+        <ul>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">MIT</span>
+            <span aria-hidden="true">BS, Computer Science</span>
+            <span aria-hidden="true">2015 - 2019</span>
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Skills</h2>
+        <a data-field="skill_card_skill_topic"><span aria-hidden="true">TypeScript</span></a>
+        <a data-field="skill_card_skill_topic"><span aria-hidden="true">Python</span></a>
+      </section>
+    </main></body></html>`);
+    const { profile } = extractProfile(doc, "https://www.linkedin.com/in/nested-exp");
+    expect(profile.experiences.length).toBeGreaterThanOrEqual(3);
+    expect(profile.experiences.some((e) => /Senior Engineer/i.test(e.title) && /Acme/i.test(e.company))).toBe(true);
+    expect(profile.experiences.some((e) => e.title === "Engineer" && /Acme/i.test(e.company))).toBe(true);
+    expect(profile.experiences.some((e) => /Intern/i.test(e.title))).toBe(true);
+    expect(profile.educations[0]?.school).toMatch(/MIT/i);
+    expect(profile.skills).toEqual(expect.arrayContaining(["TypeScript", "Python"]));
+    expect(profile.sectionStatuses?.experience).toBe("detected");
+    expect(profile.sectionStatuses?.education).toBe("detected");
+    expect(profile.sectionStatuses?.skills).toBe("detected");
+  });
+
+  it("extracts standalone jobs AND nested company roles together (6 records)", () => {
+    // Mirrors LinkedIn: 4 standalone top-level jobs + 1 company group with 2 nested roles
+    const doc = docFrom(`<!doctype html><html><body><main>
+      <section><h1>Test Profile</h1></section>
+      <section>
+        <h2>Experience</h2>
+        <ul class="pvs-list">
+          <li class="pvs-list__paged-list-item">
+            <div data-view-name="profile-component-entity">
+              <span aria-hidden="true">Head of Danish Chips Competence Centre</span>
+              <a href="https://www.linkedin.com/company/danish-chips/"><span aria-hidden="true">Danish Chips Competence Centre</span></a>
+              <span aria-hidden="true">Dec 2024 - Present</span>
+              <span aria-hidden="true">Copenhagen region, Denmark</span>
+              <!-- incidental nested entity must NOT force company-group mode -->
+              <div data-view-name="profile-component-entity"><span aria-hidden="true">Media</span></div>
+            </div>
+          </li>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Business Development Consultant</span>
+            <span aria-hidden="true">Self-employed</span>
+            <span aria-hidden="true">Aug 2024 - Present</span>
+          </li>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Chief Technology Officer</span>
+            <a href="https://www.linkedin.com/company/sparrow-quantum/"><span aria-hidden="true">Sparrow Quantum ApS</span></a>
+            <span aria-hidden="true">Mar 2022 - Aug 2024</span>
+            <span aria-hidden="true">Copenhagen Metropolitan Area</span>
+          </li>
+          <li class="pvs-list__paged-list-item">
+            <span aria-hidden="true">Entrepreneur-in-Residence</span>
+            <a href="https://www.linkedin.com/company/dtu/"><span aria-hidden="true">DTU - Technical University of Denmark</span></a>
+            <span aria-hidden="true">Jun 2021 - Apr 2022</span>
+            <span aria-hidden="true">Capital Region of Denmark, Denmark</span>
+          </li>
+          <li class="pvs-list__paged-list-item">
+            <a href="https://www.linkedin.com/company/lithium-balance/"><span aria-hidden="true">Lithium Balance A/S</span></a>
+            <span aria-hidden="true">5 yrs 1 mo</span>
+            <ul class="pvs-list">
+              <li class="pvs-list__paged-list-item">
+                <span aria-hidden="true">Director, System Engineering &amp; Innovation, R&amp;D</span>
+                <span aria-hidden="true">Jun 2021 - Mar 2022</span>
+                <span aria-hidden="true">Capital Region of Denmark, Denmark</span>
+              </li>
+              <li class="pvs-list__paged-list-item">
+                <span aria-hidden="true">R&amp;D Director</span>
+                <span aria-hidden="true">Mar 2016 - May 2021</span>
+                <span aria-hidden="true">Copenhagen, Capital Region of Denmark, Denmark</span>
+                <span aria-hidden="true">Led R&amp;D organization and product innovation roadmap.</span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+    </main></body></html>`);
+
+    const { profile } = extractProfile(doc, "https://www.linkedin.com/in/test-exp");
+    expect(profile.experiences).toHaveLength(6);
+
+    const summary = profile.experiences.map((e) => ({
+      title: e.title,
+      company: e.company,
+      start: e.start_date,
+      end: e.end_date ?? null,
+      current: !!e.is_current,
+    }));
+
+    expect(summary).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Head of Danish Chips Competence Centre",
+          company: "Danish Chips Competence Centre",
+          start: "Dec 2024",
+          end: null,
+          current: true,
+        }),
+        expect.objectContaining({
+          title: "Business Development Consultant",
+          company: "Self-employed",
+          start: "Aug 2024",
+          end: null,
+          current: true,
+        }),
+        expect.objectContaining({
+          title: "Chief Technology Officer",
+          company: "Sparrow Quantum ApS",
+          start: "Mar 2022",
+          end: "Aug 2024",
+        }),
+        expect.objectContaining({
+          title: "Entrepreneur-in-Residence",
+          company: "DTU - Technical University of Denmark",
+          start: "Jun 2021",
+          end: "Apr 2022",
+        }),
+        expect.objectContaining({
+          title: "Director, System Engineering & Innovation, R&D",
+          company: "Lithium Balance A/S",
+          start: "Jun 2021",
+          end: "Mar 2022",
+        }),
+        expect.objectContaining({
+          title: "R&D Director",
+          company: "Lithium Balance A/S",
+          start: "Mar 2016",
+          end: "May 2021",
+        }),
+      ]),
+    );
+
+    // Nested-only regression: must not be the only records
+    expect(profile.experiences.filter((e) => e.company === "Lithium Balance A/S")).toHaveLength(2);
+    expect(profile.experiences.filter((e) => e.company !== "Lithium Balance A/S")).toHaveLength(4);
+  });
+
+  it("succeeds when education and skills sections are missing", () => {
+    const doc = docFrom(`<!doctype html><html><body><main>
+      <section><h1>Only Exp</h1><div>Developer</div></section>
+      <section>
+        <h2>Experience</h2>
+        <ul>
+          <li>
+            <span aria-hidden="true">Developer</span>
+            <span aria-hidden="true">Solo Co · Full-time</span>
+            <span aria-hidden="true">2023 - Present</span>
+          </li>
+        </ul>
+      </section>
+    </main></body></html>`);
+    const { profile } = extractProfile(doc, "https://www.linkedin.com/in/only-exp");
+    expect(profile.experiences.length).toBe(1);
+    expect(profile.educations).toEqual([]);
+    expect(profile.skills).toEqual([]);
+  });
 });

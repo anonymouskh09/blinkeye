@@ -18,6 +18,7 @@ export type SectionAvailability = "detected" | "partial" | "not_available";
 export interface ExperienceItem {
   title: string;
   company: string;
+  company_url?: string;
   employment_type?: string;
   start_date?: string;
   end_date?: string;
@@ -209,10 +210,11 @@ export interface FieldConflict {
 
 export type RuntimeMessage =
   | { type: "PING_CONTENT" }
+  | { type: "EXTRACT_QUICK" }
   | { type: "EXTRACT_PROFILE" }
   | { type: "GET_PAGE_STATUS" };
 
 export type RuntimeResponse =
   | { ok: true; type: "PAGE_STATUS"; supported: boolean; url: string }
-  | { ok: true; type: "EXTRACTION"; result: ExtractionResult }
+  | { ok: true; type: "EXTRACTION"; result: ExtractionResult; phase?: "quick" | "full" }
   | { ok: false; error: string };

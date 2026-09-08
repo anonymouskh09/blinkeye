@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -17,7 +17,15 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
 from app.schemas.scheduled_activity import ScheduledActivityCreate, ScheduledActivityUpdate
 from app.services.activity_service import log_activity
-from app.services.permission_service import get_job_or_404, require_job_access
+from app.services.permission_service import (
+    apply_jobs_visibility_filter,
+    apply_hidden_clients_filter,
+    get_job_or_404,
+    require_add_jobs,
+    require_edit_jobs,
+    require_job_access,
+    require_view_jobs,
+)
 from app.services.scheduled_activity_service import scheduled_activity_response
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -79,17 +87,28 @@ def list_jobs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_view_jobs),
 ):
     query = db.query(Job).options(joinedload(Job.candidate_assignments))
+    query = apply_jobs_visibility_filter(query, db, current_user)
 
-    if current_user.role != UserRole.ADMIN:
-        query = query.filter(Job.assigned_recruiter_id == current_user.id)
-    elif recruiter_id:
+    if current_user.role == UserRole.ADMIN and recruiter_id:
         query = query.filter(Job.assigned_recruiter_id == recruiter_id)
 
     if search:
-        query = query.filter(Job.title.ilike(f"%{search}%"))
+        term = f"%{search}%"
+        from app.services.search_refs import parse_job_ref
+
+        clauses = [
+            Job.title.ilike(term),
+            Job.location.ilike(term),
+            Job.description.ilike(term),
+            cast(Job.id, String).ilike(term),
+        ]
+        ref_id = parse_job_ref(search)
+        if ref_id is not None:
+            clauses.append(Job.id == ref_id)
+        query = query.filter(or_(*clauses))
     if status:
         query = query.filter(Job.status == status)
     if client_id:
@@ -114,7 +133,7 @@ def list_jobs(
 def create_job(
     payload: JobCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_add_jobs),
 ):
     engagement = db.query(Engagement).filter(Engagement.id == payload.engagement_id).first()
     if not engagement:
@@ -132,12 +151,14 @@ def create_job(
 
     data = payload.model_dump(exclude={"client_id"})
     data["client_id"] = engagement.client_id
+    if not data.get("assigned_recruiter_id") and current_user.role != UserRole.ADMIN:
+        data["assigned_recruiter_id"] = current_user.id
     job = Job(**data)
     db.add(job)
     db.flush()
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.CREATED,
-        f"Job '{job.title}' was created under engagement '{engagement.engagement_name}'", admin.id,
+        f"Job '{job.title}' was created under engagement '{engagement.engagement_name}'", current_user.id,
     )
     db.commit()
     db.refresh(job)
@@ -153,7 +174,7 @@ def get_job(
     job = db.query(Job).options(joinedload(Job.candidate_assignments)).filter(Job.id == job_id).first()
     if not job:
         raise NotFoundException("Job not found")
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
     data = _job_to_response(job, db)
     data["activities"] = _list_job_activities(db, job_id)
     return success_response(data=data, message="Job retrieved")
@@ -164,9 +185,10 @@ def update_job(
     job_id: int,
     payload: JobUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_jobs),
 ):
     job = get_job_or_404(db, job_id)
+    require_job_access(current_user, job, db)
     update_data = payload.model_dump(exclude_unset=True)
 
     if "engagement_id" in update_data:
@@ -182,7 +204,7 @@ def update_job(
 
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.UPDATED,
-        f"Job '{job.title}' was updated", admin.id,
+        f"Job '{job.title}' was updated", current_user.id,
     )
     db.commit()
     db.refresh(job)
@@ -193,13 +215,14 @@ def update_job(
 def delete_job(
     job_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current_user: User = Depends(require_edit_jobs),
 ):
     job = get_job_or_404(db, job_id)
+    require_job_access(current_user, job, db)
     job.status = JobStatus.CLOSED
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.DELETED,
-        f"Job '{job.title}' was closed", admin.id,
+        f"Job '{job.title}' was closed", current_user.id,
     )
     db.commit()
     return success_response(message="Job closed")
@@ -213,7 +236,7 @@ def create_job_activity(
     current_user: User = Depends(get_current_user),
 ):
     job = get_job_or_404(db, job_id)
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
     activity = JobActivity(
         job_id=job_id,
         created_by=current_user.id,
@@ -241,7 +264,7 @@ def update_job_activity(
     current_user: User = Depends(get_current_user),
 ):
     job = get_job_or_404(db, job_id)
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
     activity = db.query(JobActivity).filter(
         JobActivity.id == activity_id,
         JobActivity.job_id == job_id,
@@ -270,7 +293,7 @@ def delete_job_activity(
     current_user: User = Depends(get_current_user),
 ):
     job = get_job_or_404(db, job_id)
-    require_job_access(current_user, job)
+    require_job_access(current_user, job, db)
     activity = db.query(JobActivity).filter(
         JobActivity.id == activity_id,
         JobActivity.job_id == job_id,

@@ -157,8 +157,37 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <ClientStageBadge stage={client.stage} />
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                    {isPublic ? <><Globe className="h-3 w-3" /> Public</> : <><Lock className="h-3 w-3" /> Private</>}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={async () => {
+                      const next = isPublic ? "private" : "public";
+                      try {
+                        await api.put(`/clients/${client.id}`, { visibility: next });
+                        toast.success(next === "public" ? "Client is now public" : "Client is now private");
+                        onUpdate();
+                      } catch {
+                        toast.error("Failed to update visibility");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLElement).click();
+                      }
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 transition hover:border-[#1F574A]/40 hover:bg-[#1F574A]/5 hover:text-[#1F574A]"
+                    title="Click to toggle public / private"
+                  >
+                    {isPublic ? (
+                      <>
+                        <Globe className="h-3 w-3" /> Public
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3 w-3" /> Private
+                      </>
+                    )}
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">{client.company_name}</h1>

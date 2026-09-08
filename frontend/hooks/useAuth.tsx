@@ -12,11 +12,20 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   isAdmin: boolean;
   isRecruiter: boolean;
+  canViewClients: boolean;
+  canAddClients: boolean;
+  canEditClients: boolean;
+  canViewJobs: boolean;
+  canAddJobs: boolean;
+  canEditJobs: boolean;
+  canViewCandidates: boolean;
+  canAddCandidates: boolean;
+  canEditCandidates: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const adminOnlyPaths = ["/dashboard", "/clients", "/team", "/reports"];
+const alwaysAdminPaths = ["/dashboard", "/team", "/reports", "/invoices", "/revenue"];
 const recruiterOnlyPaths = ["/my-jobs"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -52,16 +61,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, [pathname, refreshUser]);
 
+  const isAdmin = user?.role === "admin";
+  const canViewClients = isAdmin || !!user?.can_view_clients;
+  const canAddClients = isAdmin || !!user?.can_add_clients;
+  const canEditClients = isAdmin || !!user?.can_edit_clients;
+  const canViewJobs = isAdmin || !!user?.can_view_jobs;
+  const canAddJobs = isAdmin || !!user?.can_add_jobs;
+  const canEditJobs = isAdmin || !!user?.can_edit_jobs;
+  const canViewCandidates = isAdmin || !!user?.can_view_candidates;
+  const canAddCandidates = isAdmin || !!user?.can_add_candidates;
+  const canEditCandidates = isAdmin || !!user?.can_edit_candidates;
+
   useEffect(() => {
     if (!user || loading || pathname === "/login") return;
 
-    if ((user.role === "recruiter" || user.role === "manager") && adminOnlyPaths.some((p) => pathname.startsWith(p))) {
+    const isStaff = user.role === "recruiter" || user.role === "manager";
+
+    if (isStaff && alwaysAdminPaths.some((p) => pathname.startsWith(p))) {
       router.replace("/my-jobs");
+      return;
+    }
+    if (isStaff && pathname.startsWith("/clients") && !canViewClients) {
+      router.replace("/my-jobs");
+      return;
     }
     if (user.role === "admin" && pathname === "/my-jobs") {
       router.replace("/dashboard");
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, pathname, router, canViewClients]);
 
   const logout = async () => {
     await logoutApi();
@@ -77,8 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         logout,
         refreshUser,
-        isAdmin: user?.role === "admin",
+        isAdmin: !!isAdmin,
         isRecruiter: user?.role === "recruiter" || user?.role === "manager",
+        canViewClients,
+        canAddClients,
+        canEditClients,
+        canViewJobs,
+        canAddJobs,
+        canEditJobs,
+        canViewCandidates,
+        canAddCandidates,
+        canEditCandidates,
       }}
     >
       {children}

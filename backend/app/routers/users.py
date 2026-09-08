@@ -86,6 +86,15 @@ def create_user(
         role=payload.role,
         password_hash=hash_password(payload.password),
         status=UserStatus.ACTIVE,
+        can_view_clients=payload.can_view_clients,
+        can_add_clients=payload.can_add_clients,
+        can_edit_clients=payload.can_edit_clients,
+        can_view_jobs=payload.can_view_jobs,
+        can_add_jobs=payload.can_add_jobs,
+        can_edit_jobs=payload.can_edit_jobs,
+        can_view_candidates=payload.can_view_candidates,
+        can_add_candidates=payload.can_add_candidates,
+        can_edit_candidates=payload.can_edit_candidates,
     )
     db.add(user)
     db.commit()

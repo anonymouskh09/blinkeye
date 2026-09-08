@@ -4,103 +4,186 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Search, Plus, Bell, CheckSquare, Settings, Grip, User as UserIcon, LogOut,
-  Sliders, Archive, Building2, Briefcase, UserCheck, BarChart3, CheckCircle2,
+  Search, Plus, Bell, CheckSquare, Grip, User as UserIcon, LogOut,
+  Settings, Archive, Building2, Briefcase, UserCheck, BarChart3, CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getInitials } from "@/lib/utils";
+import GlobalSearchModal from "@/components/layout/GlobalSearchModal";
 
 interface HeaderActionsProps {
   addLabel?: string;
   onAddClick?: () => void;
   showPlusText?: boolean;
+  /** Dashboard-only: + opens Clients / Jobs / Candidates picker */
+  showAddMenu?: boolean;
 }
 
 export default function HeaderActions({
   addLabel,
   onAddClick,
   showPlusText = true,
+  showAddMenu = false,
 }: HeaderActionsProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, canViewClients, canAddClients, canAddJobs, canAddCandidates } = useAuth();
   const router = useRouter();
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
         setNotifOpen(false);
         setTasksOpen(false);
-        setSettingsOpen(false);
         setAppsOpen(false);
         setProfileOpen(false);
+        setAddOpen(false);
       }
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchValue.trim()) {
-      toast.success(`Searching for "${searchValue.trim()}"...`);
-      setSearchOpen(false);
-      setSearchValue("");
-    }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+        setNotifOpen(false);
+        setTasksOpen(false);
+        setAppsOpen(false);
+        setProfileOpen(false);
+        setAddOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const closeAll = () => {
+    setSearchOpen(false);
+    setNotifOpen(false);
+    setTasksOpen(false);
+    setAppsOpen(false);
+    setProfileOpen(false);
+    setAddOpen(false);
   };
 
   const userInitials = user ? getInitials(user.name) : "SA";
 
   return (
+    <>
     <div ref={containerRef} className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-      {/* 1. Search Icon */}
-      <div className="relative flex items-center">
-        <button
-          type="button"
-          onClick={() => {
-            setSearchOpen((o) => !o);
-            setNotifOpen(false);
-            setTasksOpen(false);
-            setSettingsOpen(false);
-            setAppsOpen(false);
-            setProfileOpen(false);
-          }}
-          className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center justify-center"
-          title="Search"
-          aria-label="Search"
-        >
-          <Search className="h-5 w-5" />
-        </button>
+      {/* Search */}
+      <button
+        type="button"
+        onClick={() => {
+          setSearchOpen(true);
+          setNotifOpen(false);
+          setTasksOpen(false);
+          setAppsOpen(false);
+          setProfileOpen(false);
+          setAddOpen(false);
+        }}
+        className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center justify-center"
+        title="Search (Ctrl+K)"
+        aria-label="Search"
+      >
+        <Search className="h-5 w-5" />
+      </button>
 
-        {searchOpen && (
-          <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-xl border border-slate-200 shadow-lg p-2.5 z-50 animate-slide-down">
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <Search className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="Search candidates, jobs, clients..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white text-slate-800"
-                autoFocus
-              />
-            </form>
-          </div>
-        )}
-      </div>
+      {/* Plus — dashboard: 3-option menu; other pages: direct add */}
+      {showAddMenu ? (
+        <div className="relative flex items-center mx-1">
+          <button
+            type="button"
+            onClick={() => {
+              setAddOpen((o) => !o);
+              setSearchOpen(false);
+              setNotifOpen(false);
+              setTasksOpen(false);
+              setAppsOpen(false);
+              setProfileOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1F574A] hover:bg-[#18463c] text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm hover:shadow transition-all active:scale-[0.98]"
+            title="Add"
+            aria-label="Add"
+            aria-expanded={addOpen}
+          >
+            <Plus className="h-4 w-4 stroke-[2.5]" />
+          </button>
 
-      {/* 2. Plus (+) Icon / Action Button */}
-      {onAddClick && (
+          {addOpen && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-slate-200 shadow-lg py-2 z-50 animate-slide-down">
+              <p className="px-3.5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                What do you want to add?
+              </p>
+              {canAddClients && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeAll();
+                    router.push("/clients/new");
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <Building2 className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block font-medium text-slate-900">Clients</span>
+                    <span className="block text-[11px] text-slate-500">New company / account</span>
+                  </span>
+                </button>
+              )}
+              {canAddJobs && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeAll();
+                  router.push("/jobs?create=1");
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                  <Briefcase className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block font-medium text-slate-900">Jobs</span>
+                  <span className="block text-[11px] text-slate-500">New open role</span>
+                </span>
+              </button>
+              )}
+              {canAddCandidates && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeAll();
+                  router.push("/candidates?create=form");
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                  <UserCheck className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block font-medium text-slate-900">Candidates</span>
+                  <span className="block text-[11px] text-slate-500">New talent profile</span>
+                </span>
+              </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : onAddClick ? (
         <button
           type="button"
           onClick={onAddClick}
@@ -109,14 +192,12 @@ export default function HeaderActions({
         >
           <Plus className="h-4 w-4 stroke-[2.5]" />
           {showPlusText && addLabel && (
-            <span className="font-semibold text-xs sm:text-sm leading-none">
-              {addLabel.toLowerCase().startsWith("add") ? addLabel : `${addLabel}`}
-            </span>
+            <span className="font-semibold text-xs sm:text-sm leading-none">{addLabel}</span>
           )}
         </button>
-      )}
+      ) : null}
 
-      {/* 3. Notification Icon */}
+      {/* Notifications */}
       <div className="relative flex items-center">
         <button
           type="button"
@@ -124,9 +205,9 @@ export default function HeaderActions({
             setNotifOpen((o) => !o);
             setSearchOpen(false);
             setTasksOpen(false);
-            setSettingsOpen(false);
             setAppsOpen(false);
             setProfileOpen(false);
+            setAddOpen(false);
           }}
           className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors relative flex items-center justify-center"
           title="Notifications"
@@ -149,7 +230,7 @@ export default function HeaderActions({
         )}
       </div>
 
-      {/* 4. Tasks Icon */}
+      {/* Tasks */}
       <div className="relative flex items-center">
         <button
           type="button"
@@ -157,9 +238,9 @@ export default function HeaderActions({
             setTasksOpen((o) => !o);
             setSearchOpen(false);
             setNotifOpen(false);
-            setSettingsOpen(false);
             setAppsOpen(false);
             setProfileOpen(false);
+            setAddOpen(false);
           }}
           className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center justify-center"
           title="Tasks"
@@ -187,51 +268,10 @@ export default function HeaderActions({
         )}
       </div>
 
-      {/* 5. Settings Icon */}
-      <div className="relative flex items-center">
-        <button
-          type="button"
-          onClick={() => {
-            setSettingsOpen((o) => !o);
-            setSearchOpen(false);
-            setNotifOpen(false);
-            setTasksOpen(false);
-            setAppsOpen(false);
-            setProfileOpen(false);
-          }}
-          className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center justify-center"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <Settings className="h-5 w-5" />
-        </button>
-
-        {settingsOpen && (
-          <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 z-50 animate-slide-down">
-            <Link
-              href="/settings"
-              className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
-              onClick={() => setSettingsOpen(false)}
-            >
-              <Sliders className="h-3.5 w-3.5 text-slate-400" />
-              Settings
-            </Link>
-            <Link
-              href="/archive"
-              className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
-              onClick={() => setSettingsOpen(false)}
-            >
-              <Archive className="h-3.5 w-3.5 text-slate-400" />
-              Archive
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* 6. Vertical Separator Line */}
+      {/* Separator */}
       <div className="h-5 w-[1px] bg-slate-300 mx-0.5 shrink-0" />
 
-      {/* 7. 9-Dots App Grid Icon (Grip Matrix) */}
+      {/* App grid */}
       <div className="relative flex items-center">
         <button
           type="button"
@@ -240,8 +280,8 @@ export default function HeaderActions({
             setSearchOpen(false);
             setNotifOpen(false);
             setTasksOpen(false);
-            setSettingsOpen(false);
             setProfileOpen(false);
+            setAddOpen(false);
           }}
           className="p-2 rounded-lg text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition-colors flex items-center justify-center"
           title="App Grid"
@@ -287,7 +327,7 @@ export default function HeaderActions({
         )}
       </div>
 
-      {/* 8. Profile Avatar Icon (Blue Circle with White Initials) */}
+      {/* Profile — Settings lives here */}
       <div className="relative flex items-center ml-1">
         <button
           type="button"
@@ -296,8 +336,8 @@ export default function HeaderActions({
             setSearchOpen(false);
             setNotifOpen(false);
             setTasksOpen(false);
-            setSettingsOpen(false);
             setAppsOpen(false);
+            setAddOpen(false);
           }}
           className="w-8 h-8 rounded-full bg-[#1D70B8] text-white flex items-center justify-center text-xs font-bold leading-none shadow-sm hover:opacity-90 transition-opacity border border-blue-600/20 shrink-0 overflow-hidden select-none"
           title={user?.name || "Profile"}
@@ -325,6 +365,23 @@ export default function HeaderActions({
               <UserIcon className="h-3.5 w-3.5 text-slate-400" />
               My Profile
             </button>
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={closeAll}
+            >
+              <Settings className="h-3.5 w-3.5 text-slate-400" />
+              Settings
+            </Link>
+            <Link
+              href="/archive"
+              className="flex items-center gap-2 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={closeAll}
+            >
+              <Archive className="h-3.5 w-3.5 text-slate-400" />
+              Archive
+            </Link>
+            <div className="my-1 border-t border-slate-100" />
             <button
               type="button"
               className="w-full text-left px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
@@ -340,5 +397,13 @@ export default function HeaderActions({
         )}
       </div>
     </div>
+
+    <GlobalSearchModal
+      open={searchOpen}
+      onClose={() => setSearchOpen(false)}
+      isAdmin={isAdmin}
+      canViewClients={canViewClients}
+    />
+    </>
   );
 }

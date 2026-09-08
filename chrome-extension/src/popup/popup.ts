@@ -1,7 +1,12 @@
 import { el, clear, on } from "./dom";
 import { environment } from "../config/environment";
 import { getActiveSession, exchangeCode, connectWithDevToken, logout } from "../services/auth";
-import { getPageContext, requestExtraction, type PageContext } from "../services/tabs";
+import {
+  getPageContext,
+  requestExtraction,
+  requestQuickExtraction,
+  type PageContext,
+} from "../services/tabs";
 import { loadDropdowns } from "../services/dropdowns";
 import {
   checkDuplicate,
@@ -11,6 +16,7 @@ import {
   updateMissingFields,
 } from "../services/candidates";
 import { validateProfile, toImportPayload } from "../utils/validators";
+import { cloneProfile, debugLog, normalizeCandidateProfile } from "../utils/normalizeProfile";
 import { validateUploadFile, formatFileSize, guessFileKind } from "../utils/fileValidation";
 import { mergeLinkedInAndCv, applyConflictChoices } from "../utils/mergeProfile";
 import { toUserMessage, ApiError } from "../utils/errors";
@@ -23,13 +29,16 @@ import type {
   FieldConflict,
   ImportedVia,
   PopupState,
-  SectionAvailability,
 } from "../types";
 
 const root = document.getElementById("root") as HTMLElement;
 const headerUser = document.getElementById("header-user") as HTMLElement;
-const envBadge = document.getElementById("env-badge") as HTMLElement;
+const sqToolbar = document.getElementById("sq-toolbar") as HTMLElement;
+const sqNav = document.getElementById("sq-nav") as HTMLElement;
+const toolbarJob = document.getElementById("toolbar-job") as HTMLSelectElement;
+const btnOpenAts = document.getElementById("btn-open-ats") as HTMLButtonElement;
 
+type PanelTab = "candidate" | "assign" | "more";
 type UploadStatus = "idle" | "uploading" | "parsing" | "parsed" | "failed";
 
 interface AppContext {
@@ -55,6 +64,12 @@ interface AppContext {
     cvCompany: string;
   } | null;
   busyAction: string;
+  /** Full scroll/section extract still running after quick preview. */
+  enriching: boolean;
+  /** Early duplicate hit (banner + sticky CTA) without leaving preview. */
+  earlyDuplicate: DuplicateInfo | null;
+  extractGeneration: number;
+  panelTab: PanelTab;
 }
 
 const ctx: AppContext = {
@@ -74,11 +89,110 @@ const ctx: AppContext = {
   conflicts: [],
   mergeMeta: null,
   busyAction: "",
+  enriching: false,
+  earlyDuplicate: null,
+  extractGeneration: 0,
+  panelTab: "candidate",
 };
 
 function setState(state: PopupState): void {
   ctx.state = state;
   render();
+}
+
+function syncShellChrome(): void {
+  const showShell = ctx.state === "preview" && !!ctx.profile;
+  sqNav.hidden = !showShell;
+  sqToolbar.hidden = !showShell;
+
+  if (showShell) {
+    for (const btn of sqNav.querySelectorAll<HTMLButtonElement>(".sq-nav-item")) {
+      btn.classList.toggle("active", btn.dataset.tab === ctx.panelTab);
+    }
+    syncToolbarJobSelect();
+  }
+}
+
+function syncToolbarJobSelect(): void {
+  clear(toolbarJob);
+  toolbarJob.append(el("option", { value: "" }, ["— Select job —"]));
+  for (const j of ctx.dropdowns?.jobs ?? []) {
+    const label = j.clientName ? `${j.title} — ${j.clientName}` : j.title;
+    const opt = el("option", { value: String(j.id) }, [label]) as HTMLOptionElement;
+    if (ctx.selection.jobId === j.id) opt.selected = true;
+    toolbarJob.append(opt);
+  }
+}
+
+function infoRow(icon: string, label: string, value: string | null | undefined): HTMLElement {
+  const empty = !value?.trim();
+  return el("div", { class: "sq-row" }, [
+    el("div", { class: "sq-row-icon", text: icon }),
+    el("div", { class: "sq-row-body" }, [
+      el("div", { class: "sq-row-label", text: label }),
+      el("div", {
+        class: empty ? "sq-row-value empty" : "sq-row-value",
+        text: empty ? `No ${label.toLowerCase()} found` : value!.trim(),
+      }),
+    ]),
+  ]);
+}
+
+function loadAvatar(img: HTMLImageElement, url: string): void {
+  const raw = url.trim();
+  if (!raw) return;
+  if (raw.startsWith("data:")) {
+    img.src = raw;
+    return;
+  }
+  void chrome.runtime
+    .sendMessage({ type: "FETCH_IMAGE_DATA_URL", url: raw })
+    .then((res: { ok?: boolean; dataUrl?: string } | undefined) => {
+      img.src = res?.ok && res.dataUrl ? res.dataUrl : raw;
+    })
+    .catch(() => {
+      img.src = raw;
+    });
+}
+
+function preferRicherProfile(quick: CandidateProfile, full: CandidateProfile): CandidateProfile {
+  const pickArr = <T>(a: T[] | undefined, b: T[] | undefined): T[] => {
+    const left = a ?? [];
+    const right = b ?? [];
+    return right.length >= left.length ? right : left;
+  };
+  return normalizeCandidateProfile({
+    ...quick,
+    ...full,
+    fullName: full.fullName || quick.fullName,
+    headline: full.headline || quick.headline,
+    location: full.location || quick.location,
+    email: full.email || quick.email,
+    phone: full.phone || quick.phone,
+    summary: full.summary || quick.summary,
+    profileImageUrl: full.profileImageUrl || quick.profileImageUrl,
+    linkedinUrl: full.linkedinUrl || quick.linkedinUrl,
+    experiences: pickArr(quick.experiences, full.experiences),
+    educations: pickArr(quick.educations, full.educations),
+    skills: pickArr(quick.skills, full.skills),
+    certifications: pickArr(quick.certifications, full.certifications),
+    languages: pickArr(quick.languages, full.languages),
+    sectionStatuses: full.sectionStatuses || quick.sectionStatuses,
+  });
+}
+
+async function runEarlyDuplicateCheck(profile: CandidateProfile): Promise<void> {
+  if (!profile.linkedinUrl) return;
+  try {
+    const dup = await checkDuplicate(profile.linkedinUrl, profile.email);
+    if (dup.duplicate && dup.existing) {
+      ctx.earlyDuplicate = dup.existing;
+      ctx.duplicate = dup.existing;
+      if (ctx.state === "preview") render();
+    }
+  } catch {
+    /* non-blocking */
+  }
 }
 
 function renderHeaderUser(user: ExtensionUser | null): void {
@@ -96,18 +210,6 @@ function renderHeaderUser(user: ExtensionUser | null): void {
 function importedViaForFile(file: File | null): ImportedVia {
   if (!file) return "chrome_extension";
   return guessFileKind(file) === "linkedin_pdf" ? "linkedin_profile_pdf" : "chrome_extension_cv";
-}
-
-function statusLabel(s: SectionAvailability | undefined): string {
-  if (s === "detected") return "Detected";
-  if (s === "partial") return "Partial";
-  return "Not available";
-}
-
-function pillClass(s: SectionAvailability | undefined): string {
-  if (s === "detected") return "pill ok";
-  if (s === "partial") return "pill partial";
-  return "pill";
 }
 
 // ---- individual state views ------------------------------------------------
@@ -272,6 +374,97 @@ function applyConflictsToProfile(): void {
   ctx.profile = applyConflictChoices(ctx.profile, ctx.conflicts, ctx.mergeMeta);
 }
 
+function viewExtractedSections(profile: CandidateProfile): HTMLElement {
+  const wrap = el("div", {});
+
+  const experiences = profile.experiences || [];
+  const educations = profile.educations || [];
+  const skills = profile.skills || [];
+  const certifications = profile.certifications || [];
+  const languages = profile.languages || [];
+
+  const addBlock = (title: string, body: HTMLElement | string) => {
+    wrap.append(
+      el("div", { class: "sq-section" }, [
+        el("div", { class: "sq-section-title", text: title }),
+        typeof body === "string" ? el("div", { class: "sq-empty", text: body }) : body,
+      ]),
+    );
+  };
+
+  if (experiences.length) {
+    const list = el("ul", { class: "sq-list" });
+    for (const exp of experiences.slice(0, 8)) {
+      const dates = [exp.start_date, exp.is_current ? "Present" : exp.end_date].filter(Boolean).join(" – ");
+      list.append(
+        el("li", {}, [
+          el("strong", { text: exp.title }),
+          el("span", { text: ` · ${exp.company}` }),
+          dates ? el("div", { class: "sq-meta", text: dates }) : null,
+        ]),
+      );
+    }
+    if (experiences.length > 8) {
+      list.append(el("li", { class: "sq-meta", text: `+${experiences.length - 8} more` }));
+    }
+    addBlock(`Experience (${experiences.length})`, list);
+  } else if (!ctx.enriching) {
+    addBlock("Experience", "None found on this page");
+  }
+
+  if (educations.length) {
+    const list = el("ul", { class: "sq-list" });
+    for (const edu of educations.slice(0, 6)) {
+      list.append(
+        el("li", {}, [
+          el("strong", { text: edu.school }),
+          edu.degree ? el("span", { text: ` · ${edu.degree}` }) : null,
+        ]),
+      );
+    }
+    addBlock(`Education (${educations.length})`, list);
+  } else if (!ctx.enriching) {
+    addBlock("Education", "None found on this page");
+  }
+
+  if (skills.length) {
+    addBlock(
+      `Skills (${skills.length})`,
+      el("div", { class: "sq-skills", text: skills.slice(0, 24).join(" · ") }),
+    );
+  } else if (!ctx.enriching) {
+    addBlock("Skills", "None found on this page");
+  }
+
+  if (certifications.length) {
+    const list = el("ul", { class: "sq-list" });
+    for (const cert of certifications.slice(0, 5)) {
+      list.append(
+        el("li", {}, [
+          el("strong", { text: cert.name }),
+          cert.issuing_organization ? el("span", { text: ` · ${cert.issuing_organization}` }) : null,
+        ]),
+      );
+    }
+    addBlock(`Certifications (${certifications.length})`, list);
+  }
+
+  if (languages.length) {
+    addBlock(
+      `Languages (${languages.length})`,
+      el(
+        "div",
+        {
+          class: "sq-skills",
+          text: languages.map((l) => (l.proficiency ? `${l.language} (${l.proficiency})` : l.language)).join(" · "),
+        },
+      ),
+    );
+  }
+
+  return wrap;
+}
+
 function viewUploadSection(): HTMLElement {
   const box = el("div", { class: "upload-box" });
   box.append(el("h3", { text: "Add CV or LinkedIn Profile PDF" }));
@@ -384,118 +577,122 @@ function viewPreview(): HTMLElement {
   const dropdowns = ctx.dropdowns;
   const container = el("div", {});
 
-  const avatar = el("img", { class: "avatar", src: "", alt: "" }) as HTMLImageElement;
-  const rawPhoto = profile.profileImageUrl?.trim() || "";
-  if (rawPhoto.startsWith("data:")) {
-    avatar.src = rawPhoto;
-  } else if (rawPhoto) {
-    void chrome.runtime
-      .sendMessage({ type: "FETCH_IMAGE_DATA_URL", url: rawPhoto })
-      .then((res: { ok?: boolean; dataUrl?: string } | undefined) => {
-        if (res?.ok && res.dataUrl) avatar.src = res.dataUrl;
-        else avatar.src = rawPhoto;
-      })
-      .catch(() => {
-        avatar.src = rawPhoto;
-      });
+  if (ctx.panelTab === "assign") {
+    return viewAssignTab(container, profile, dropdowns);
+  }
+  if (ctx.panelTab === "more") {
+    return viewMoreTab(container, profile);
   }
 
-  container.append(
-    el("div", { class: "preview-head" }, [
+  // ---- Candidate tab (SalesQL-style) ----
+  const avatar = el("img", { class: "sq-avatar", src: "", alt: "" }) as HTMLImageElement;
+  loadAvatar(avatar, profile.profileImageUrl || "");
+
+  const card = el("div", { class: "sq-card" }, [
+    el("div", { class: "sq-profile" }, [
       avatar,
-      el("div", { class: "who" }, [
+      el("div", { class: "sq-who" }, [
         el("strong", { text: profile.fullName || "Unknown candidate" }),
-        el("span", { text: profile.headline || "" }),
+        el("span", { text: profile.headline || "No headline found" }),
       ]),
     ]),
-  );
+  ]);
 
-  const statuses = profile.sectionStatuses;
-  if (statuses) {
-    const row = el("div", { class: "section-status" });
-    for (const [key, label] of [
-      ["experience", "Experience"],
-      ["education", "Education"],
-      ["skills", "Skills"],
-      ["certifications", "Certifications"],
-      ["languages", "Languages"],
-    ] as const) {
-      row.append(
-        el("span", {
-          class: pillClass(statuses[key]),
-          text: `${label}: ${statusLabel(statuses[key])}`,
-        }),
-      );
+  const formError = el("div", { class: "field-error" });
+  const addBtn = el("button", { class: "sq-cta", type: "button" }, [
+    ctx.earlyDuplicate ? "Add anyway" : "Add to RecruitPro",
+  ]);
+  const addOpenBtn = el("button", { class: "sq-cta sq-cta-secondary", type: "button" }, [
+    "Add & open in ATS",
+  ]);
+
+  const doSave = async (openAfter: boolean) => {
+    formError.textContent = "";
+    applyConflictsToProfile();
+    const result = validateProfile(profile);
+    if (!result.valid) {
+      formError.textContent = Object.values(result.errors)[0] || "Fix required fields in More tab.";
+      ctx.panelTab = "more";
+      render();
+      return;
     }
-    container.append(row);
+    addBtn.setAttribute("disabled", "");
+    addOpenBtn.setAttribute("disabled", "");
+    await saveCandidate(openAfter);
+    addBtn.removeAttribute("disabled");
+    addOpenBtn.removeAttribute("disabled");
+  };
+  on(addBtn, "click", () => doSave(false));
+  on(addOpenBtn, "click", () => doSave(true));
+  card.append(addBtn, addOpenBtn, formError);
+  container.append(card);
+
+  if (ctx.enriching) {
+    container.append(
+      el("div", { class: "enrich-banner" }, [
+        el("span", { class: "spinner-inline" }),
+        el("span", { text: "Loading experience, education & skills…" }),
+      ]),
+    );
   }
 
-  const expCount = profile.experiences?.length ?? 0;
-  const eduCount = profile.educations?.length ?? 0;
-  const skillCount = profile.skills?.length ?? 0;
-  const certCount = profile.certifications?.length ?? 0;
-  const langCount = profile.languages?.length ?? 0;
-  const bits = [
-    expCount ? `${expCount} experience` : null,
-    eduCount ? `${eduCount} education` : null,
-    skillCount ? `${skillCount} skills` : null,
-    certCount ? `${certCount} certifications` : null,
-    langCount ? `${langCount} languages` : null,
-    profile.summary ? "summary" : null,
-  ].filter(Boolean);
+  if (ctx.earlyDuplicate) {
+    const openExisting = el("button", { class: "link-btn", type: "button" }, ["Open existing"]);
+    on(openExisting, "click", () => {
+      chrome.tabs.create({
+        url: `${environment.appBaseUrl}/candidates/${ctx.earlyDuplicate!.id}`,
+      });
+    });
+    container.append(
+      el("div", { class: "notice notice-warn" }, [
+        el("span", { text: `Already in RecruitPro: ${ctx.earlyDuplicate.name}. ` }),
+        openExisting,
+      ]),
+    );
+  }
+
+  const company =
+    profile.experiences?.[0]?.company ||
+    (profile.experiences?.length ? `${profile.experiences.length} roles found` : "");
   container.append(
-    el("div", { class: bits.length ? "notice notice-info" : "notice notice-warn" }, [
-      bits.length
-        ? `Also detected: ${bits.join(" · ")}`
-        : "Only basic fields found. Scroll the LinkedIn profile to load sections, then reopen the extension.",
+    el("div", { class: "sq-rows" }, [
+      infoRow("✉", "Email", profile.email),
+      infoRow("☎", "Phone", profile.phone),
+      infoRow("🏢", "Company", company),
+      infoRow("📍", "Location", profile.location),
     ]),
   );
 
-  container.append(viewUploadSection());
-  const conflictsUi = viewConflicts();
-  if (conflictsUi) container.append(conflictsUi);
+  container.append(viewExtractedSections(profile));
+  return container;
+}
 
-  const errors: Record<string, HTMLElement> = {};
-  type ScalarField = "fullName" | "headline" | "location" | "email" | "phone" | "linkedinUrl" | "summary";
-  const field = (
-    key: ScalarField,
-    labelText: string,
-    opts: { required?: boolean; textarea?: boolean } = {},
-  ) => {
-    const value = String(profile[key] ?? "");
-    const control = opts.textarea
-      ? (el("textarea", { class: "textarea" }, [value]) as HTMLTextAreaElement)
-      : (el("input", { class: "input", type: "text", value }) as HTMLInputElement);
-    on(control as HTMLElement, "input", () => {
-      profile[key] = (control as HTMLInputElement).value;
-    });
-    const errEl = el("div", { class: "field-error" });
-    errors[key] = errEl;
-    return el("label", { class: "field" }, [
-      el("span", {}, [labelText, opts.required ? el("span", { class: "req", text: " *" }) : null]),
-      control,
-      errEl,
-    ]);
-  };
-
-  container.append(field("fullName", "Full name", { required: true }));
-  container.append(field("headline", "Headline"));
-  container.append(field("location", "Location"));
-  container.append(field("email", "Email"));
-  container.append(field("phone", "Phone"));
-  container.append(field("linkedinUrl", "LinkedIn URL"));
-  container.append(field("summary", "Summary", { textarea: true }));
+function viewAssignTab(
+  container: HTMLElement,
+  _profile: CandidateProfile,
+  dropdowns: DropdownData | null,
+): HTMLElement {
+  container.append(el("h2", { class: "title", text: "Assign" }));
+  container.append(
+    el("p", {
+      class: "subtitle",
+      text: "Optional — attach this candidate to a job and pipeline stage.",
+    }),
+  );
 
   if (dropdowns) {
     container.append(
       selectField(
-        "Assign to job",
+        "Job",
         dropdowns.jobs.map((j) => ({
           value: String(j.id),
           label: j.clientName ? `${j.title} — ${j.clientName}` : j.title,
         })),
         ctx.selection.jobId ? String(ctx.selection.jobId) : "",
-        (v) => (ctx.selection.jobId = v ? Number(v) : null),
+        (v) => {
+          ctx.selection.jobId = v ? Number(v) : null;
+          syncToolbarJobSelect();
+        },
       ),
     );
     container.append(
@@ -515,42 +712,63 @@ function viewPreview(): HTMLElement {
         "— Me (default) —",
       ),
     );
+  } else {
+    container.append(el("div", { class: "notice notice-info", text: "Loading jobs…" }));
   }
 
-  const formError = el("div", { class: "field-error" });
-  container.append(formError);
+  container.append(viewUploadSection());
+  const conflictsUi = viewConflicts();
+  if (conflictsUi) container.append(conflictsUi);
 
-  const saveBtn = el("button", { class: "btn btn-primary", type: "button" }, ["Save candidate"]);
-  const saveOpenBtn = el("button", { class: "btn btn-secondary", type: "button" }, ["Save & open"]);
+  const back = el("button", { class: "sq-cta", type: "button" }, ["Back to candidate"]);
+  on(back, "click", () => {
+    ctx.panelTab = "candidate";
+    render();
+  });
+  container.append(back);
+  return container;
+}
 
-  const doSave = async (openAfter: boolean) => {
-    formError.textContent = "";
-    Object.values(errors).forEach((e) => (e.textContent = ""));
-    applyConflictsToProfile();
-    const result = validateProfile(profile);
-    if (!result.valid) {
-      for (const [key, msg] of Object.entries(result.errors)) {
-        if (errors[key]) errors[key].textContent = msg as string;
-      }
-      return;
-    }
-    saveBtn.setAttribute("disabled", "");
-    saveOpenBtn.setAttribute("disabled", "");
-    await saveCandidate(openAfter);
-    saveBtn.removeAttribute("disabled");
-    saveOpenBtn.removeAttribute("disabled");
+function viewMoreTab(container: HTMLElement, profile: CandidateProfile): HTMLElement {
+  container.append(el("h2", { class: "title", text: "Edit details" }));
+  container.append(
+    el("p", { class: "subtitle", text: "Fix name or contact fields before importing." }),
+  );
+
+  type ScalarField = "fullName" | "headline" | "location" | "email" | "phone" | "linkedinUrl" | "summary";
+  const field = (
+    key: ScalarField,
+    labelText: string,
+    opts: { required?: boolean; textarea?: boolean } = {},
+  ) => {
+    const value = String(profile[key] ?? "");
+    const control = opts.textarea
+      ? (el("textarea", { class: "textarea" }, [value]) as HTMLTextAreaElement)
+      : (el("input", { class: "input", type: "text", value }) as HTMLInputElement);
+    on(control as HTMLElement, "input", () => {
+      profile[key] = (control as HTMLInputElement).value;
+    });
+    return el("label", { class: "field" }, [
+      el("span", {}, [labelText, opts.required ? el("span", { class: "req", text: " *" }) : null]),
+      control,
+    ]);
   };
 
-  on(saveBtn, "click", () => doSave(false));
-  on(saveOpenBtn, "click", () => doSave(true));
-  container.append(el("div", { class: "btn-row" }, [saveBtn, saveOpenBtn]));
+  container.append(field("fullName", "Full name", { required: true }));
+  container.append(field("headline", "Headline"));
+  container.append(field("location", "Location"));
+  container.append(field("email", "Email"));
+  container.append(field("phone", "Phone"));
+  container.append(field("linkedinUrl", "LinkedIn URL"));
+  container.append(field("summary", "Summary", { textarea: true }));
 
-  const logoutBtn = el("button", { class: "btn btn-danger", type: "button", style: "margin-top:8px" }, [
-    "Disconnect",
-  ]);
+  if (!environment.isProduction) {
+    container.append(el("div", { class: "env-badge", text: "dev" }));
+  }
+
+  const logoutBtn = el("button", { class: "btn btn-danger", type: "button" }, ["Disconnect"]);
   on(logoutBtn, "click", handleLogout);
   container.append(logoutBtn);
-
   return container;
 }
 
@@ -686,7 +904,7 @@ function viewDuplicate(): HTMLElement {
 function viewSuccess(): HTMLElement {
   const container = el("div", { class: "state-center" }, [
     el("div", { class: "icon success-check", text: "✓" }),
-    el("h2", { class: "title", text: "Candidate saved" }),
+    el("h2", { class: "title", text: "Candidate successfully added to ATS" }),
     el("p", { class: "subtitle", text: "The candidate was imported into RecruitPro." }),
   ]);
   if (ctx.successUrl) {
@@ -703,12 +921,17 @@ function viewSuccess(): HTMLElement {
 }
 
 function viewError(): HTMLElement {
-  const container = el("div", {}, [
+  const container = el("div", { class: "state-center" }, [
     el("div", { class: "notice notice-error", text: ctx.errorMessage || "Something went wrong." }),
   ]);
   const retry = el("button", { class: "btn btn-primary", type: "button" }, ["Try again"]);
   on(retry, "click", startExtraction);
   container.append(retry);
+  const tip = el("p", {
+    class: "subtitle",
+    text: "Open a LinkedIn profile (linkedin.com/in/…), then click Try again.",
+  });
+  container.append(tip);
   return container;
 }
 
@@ -724,8 +947,8 @@ function viewSessionExpired(): HTMLElement {
 
 function render(): void {
   clear(root);
-  envBadge.textContent = environment.isProduction ? "" : "dev";
   renderHeaderUser(ctx.session?.user ?? null);
+  syncShellChrome();
 
   switch (ctx.state) {
     case "loading":
@@ -738,7 +961,7 @@ function render(): void {
       root.append(viewNotConnected());
       break;
     case "extracting":
-      root.append(viewLoading("Reading LinkedIn profile…"));
+      root.append(viewLoading("Reading profile…"));
       break;
     case "preview":
       root.append(viewPreview());
@@ -811,7 +1034,9 @@ async function saveCandidate(openAfter: boolean): Promise<void> {
 }
 
 async function startExtraction(): Promise<void> {
+  const generation = ++ctx.extractGeneration;
   ctx.duplicate = null;
+  ctx.earlyDuplicate = null;
   ctx.successUrl = null;
   ctx.uploadFile = null;
   ctx.uploadStatus = "idle";
@@ -819,22 +1044,63 @@ async function startExtraction(): Promise<void> {
   ctx.conflicts = [];
   ctx.mergeMeta = null;
   ctx.linkedinProfile = null;
+  ctx.enriching = false;
+  ctx.panelTab = "candidate";
+  ctx.page = await getPageContext();
   if (!ctx.page?.tabId || !ctx.page.supported) {
     setState("unsupported");
     return;
   }
   setState("extracting");
   try {
-    const extraction = await requestExtraction(ctx.page.tabId);
-    ctx.profile = {
-      ...extraction.profile,
-      certifications: extraction.profile.certifications || [],
-      languages: extraction.profile.languages || [],
-    };
-    ctx.linkedinProfile = { ...ctx.profile };
+    const quick = await requestQuickExtraction(ctx.page.tabId);
+    if (generation !== ctx.extractGeneration) return;
+    const normalized = normalizeCandidateProfile(quick.profile);
+    debugLog("popup quick profile", {
+      fullName: normalized.fullName,
+      experiences: normalized.experiences.length,
+      educations: normalized.educations.length,
+      skills: normalized.skills.length,
+      url: normalized.linkedinUrl,
+    });
+    ctx.profile = normalized;
+    ctx.linkedinProfile = cloneProfile(normalized);
+    ctx.enriching = true;
     setState("preview");
+    void runEarlyDuplicateCheck(normalized);
+
+    // Background enrich — does not block Add CTA
+    void (async () => {
+      try {
+        const full = await requestExtraction(ctx.page!.tabId!);
+        if (generation !== ctx.extractGeneration) return;
+        const richer = preferRicherProfile(ctx.linkedinProfile || normalized, normalizeCandidateProfile(full.profile));
+        debugLog("popup full profile", {
+          fullName: richer.fullName,
+          experiences: richer.experiences.length,
+          educations: richer.educations.length,
+          skills: richer.skills.length,
+        });
+        ctx.linkedinProfile = cloneProfile(richer);
+        if (ctx.uploadStatus === "parsed" && ctx.uploadFile) {
+          // Keep CV merge; refresh LinkedIn base only
+          ctx.profile = richer;
+        } else {
+          ctx.profile = richer;
+        }
+      } catch (e) {
+        debugLog("full extract failed (keeping quick)", e);
+      } finally {
+        if (generation === ctx.extractGeneration) {
+          ctx.enriching = false;
+          if (ctx.state === "preview") render();
+        }
+      }
+    })();
   } catch (e) {
-    ctx.errorMessage = e instanceof Error ? e.message : "Could not read this profile.";
+    if (generation !== ctx.extractGeneration) return;
+    ctx.enriching = false;
+    ctx.errorMessage = e instanceof Error ? e.message : "Unable to extract candidate information.";
     setState("error");
   }
 }
@@ -867,15 +1133,56 @@ async function handleLogout(): Promise<void> {
 }
 
 async function init(): Promise<void> {
+  on(btnOpenAts, "click", () => {
+    chrome.tabs.create({ url: environment.appBaseUrl });
+  });
+
+  on(toolbarJob, "change", () => {
+    ctx.selection.jobId = toolbarJob.value ? Number(toolbarJob.value) : null;
+  });
+
+  for (const btn of sqNav.querySelectorAll<HTMLButtonElement>(".sq-nav-item")) {
+    on(btn, "click", () => {
+      const tab = btn.dataset.tab as PanelTab | undefined;
+      if (!tab) return;
+      ctx.panelTab = tab;
+      render();
+    });
+  }
+
   render();
   ctx.page = await getPageContext();
   ctx.session = await getActiveSession();
 
   if (!ctx.session) {
     setState("not-connected");
-    return;
+  } else {
+    await bootstrapConnected();
   }
-  await bootstrapConnected();
+
+  // Side panel: re-extract when the active LinkedIn tab changes
+  const refreshFromActiveTab = async () => {
+    if (!ctx.session) return;
+    const next = await getPageContext();
+    const prevUrl = ctx.page?.url ?? "";
+    ctx.page = next;
+    if (!next.supported) {
+      if (ctx.state !== "unsupported" && ctx.state !== "not-connected") setState("unsupported");
+      return;
+    }
+    if (next.url && next.url !== prevUrl) {
+      await startExtraction();
+    }
+  };
+
+  chrome.tabs.onActivated.addListener(() => {
+    void refreshFromActiveTab();
+  });
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (changeInfo.status === "complete" && tab.active && tab.url?.includes("linkedin.com/in/")) {
+      void refreshFromActiveTab();
+    }
+  });
 }
 
 void init();

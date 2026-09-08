@@ -37,6 +37,7 @@ class Client(Base, TimestampMixin):
     engagements = relationship("Engagement", back_populates="client", cascade="all, delete-orphan")
     contacts = relationship("ClientContact", back_populates="client", cascade="all, delete-orphan")
     team_members = relationship("ClientTeamMember", back_populates="client", cascade="all, delete-orphan")
+    hidden_members = relationship("ClientHiddenMember", back_populates="client", cascade="all, delete-orphan")
     guests = relationship("ClientGuest", back_populates="client", cascade="all, delete-orphan")
     attachments = relationship("ClientAttachment", back_populates="client", cascade="all, delete-orphan")
     activities = relationship("ClientActivity", back_populates="client", cascade="all, delete-orphan")

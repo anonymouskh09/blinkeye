@@ -12,6 +12,7 @@ import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import ResumeProcessingPanel from "@/components/candidates/ResumeProcessingPanel";
+import CreateCandidateFormSlideOver from "@/components/candidates/CreateCandidateFormSlideOver";
 import api from "@/lib/api";
 import { RESUME_PROCESS_STEPS, runWithProcessingSteps } from "@/lib/resumeProcessing";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,8 @@ interface Props {
   onClose: () => void;
   onCreated: () => void;
   defaultFolderId?: number;
+  /** Open directly on Complete a Form slide-over */
+  startWithForm?: boolean;
 }
 
 function buildFormData(data: ParsedResume, cvFile: File): FormData {
@@ -72,12 +75,19 @@ function buildFormData(data: ParsedResume, cvFile: File): FormData {
   return fd;
 }
 
-export default function CreateCandidateModal({ open, onClose, onCreated, defaultFolderId }: Props) {
+export default function CreateCandidateModal({
+  open,
+  onClose,
+  onCreated,
+  defaultFolderId,
+  startWithForm = false,
+}: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const multiRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("menu");
+  const [formOpen, setFormOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState("");
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -93,6 +103,7 @@ export default function CreateCandidateModal({ open, onClose, onCreated, default
 
   const reset = useCallback(() => {
     setStep("menu");
+    setFormOpen(false);
     setSelectedJob("");
     setCvFile(null);
     setParsed(null);
@@ -113,10 +124,11 @@ export default function CreateCandidateModal({ open, onClose, onCreated, default
 
   useEffect(() => {
     if (!open) return;
+    if (startWithForm) setFormOpen(true);
     api.get<ApiResponse<PaginatedData<Job>>>("/jobs", { params: { page_size: 100, status: "active" } })
       .then((r) => setJobs(r.data.data.items))
       .catch(() => setJobs([]));
-  }, [open]);
+  }, [open, startWithForm]);
 
   const applyParsedToReview = (p: ParsedResume) => {
     setReview({
@@ -247,8 +259,7 @@ export default function CreateCandidateModal({ open, onClose, onCreated, default
 
   const handleMenuClick = (id: string) => {
     if (id === "form") {
-      handleClose();
-      router.push("/candidates/new");
+      setFormOpen(true);
       return;
     }
     if (id === "upload") {
@@ -300,7 +311,12 @@ export default function CreateCandidateModal({ open, onClose, onCreated, default
       <input ref={multiRef} type="file" accept=".pdf,.doc,.docx,.rtf" multiple className="hidden"
         onChange={(e) => { handleMultiFiles(e.target.files); e.target.value = ""; }} />
 
-      <AnimatedModal open={open} onClose={handleClose} title={title} size={step === "menu" ? "lg" : "lg"}>
+      <AnimatedModal
+        open={open && !formOpen}
+        onClose={handleClose}
+        title={title}
+        size={step === "menu" ? "lg" : "lg"}
+      >
         {step === "menu" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {MENU_OPTIONS.map(({ id, label, icon: Icon, iconClass, bg }) => (
@@ -414,6 +430,25 @@ export default function CreateCandidateModal({ open, onClose, onCreated, default
           </div>
         )}
       </AnimatedModal>
+
+      <CreateCandidateFormSlideOver
+        open={open && formOpen}
+        onClose={() => {
+          if (startWithForm) handleClose();
+          else setFormOpen(false);
+        }}
+        defaultFolderId={defaultFolderId}
+        assignJobId={selectedJob ? Number(selectedJob) : null}
+        onCreated={(candidateId) => {
+          onCreated();
+          handleClose();
+          if (defaultFolderId) {
+            router.push(`/candidates/folders/${defaultFolderId}`);
+          } else {
+            router.push(`/candidates/${candidateId}`);
+          }
+        }}
+      />
     </>
   );
 }
