@@ -12,7 +12,9 @@ class Job(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, index=True)
-    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"), nullable=False, index=True)
+    engagement_id: Mapped[int | None] = mapped_column(
+        ForeignKey("engagements.id"), nullable=True, index=True
+    )
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     job_type: Mapped[JobType] = mapped_column(
         pg_enum(JobType, name="job_type"), nullable=False, default=JobType.FULL_TIME

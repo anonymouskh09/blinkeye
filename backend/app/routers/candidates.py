@@ -7,7 +7,7 @@ from sqlalchemy import String, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_admin, require_admin
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.core.response import paginate, success_response
 from app.models.candidate import Candidate
@@ -83,6 +83,7 @@ def _candidate_to_response(candidate: Candidate, db: Session) -> dict:
         educations=candidate.educations or [],
         skill_levels=candidate.skill_levels or [],
         candidate_status=candidate.candidate_status or "new",
+        is_archived=bool(getattr(candidate, "is_archived", False)),
         candidate_rating=candidate.candidate_rating,
         assigned_job_id=candidate.assigned_job_id,
         assigned_job_title=assigned_job_title,
@@ -187,6 +188,7 @@ def list_candidates(
     created_by: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    archived: bool = False,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -198,6 +200,7 @@ def list_candidates(
         query = query.filter(Candidate.created_by == created_by)
 
     query = apply_hidden_candidates_filter(query, db, current_user)
+    query = query.filter(Candidate.is_archived.is_(True) if archived else Candidate.is_archived.is_(False))
 
     if date_from:
         query = query.filter(func.date(Candidate.created_at) >= date_from)
@@ -453,13 +456,49 @@ def delete_candidate(
     current_user: User = Depends(require_edit_candidates),
 ):
     candidate = _get_candidate_or_404(db, candidate_id, current_user)
+    candidate.is_archived = True
     log_activity(
         db, EntityType.CANDIDATE, candidate.id, ActivityAction.DELETED,
-        f"Candidate '{candidate.name}' was deleted", current_user.id,
+        f"Candidate '{candidate.name}' was archived", current_user.id,
     )
-    db.delete(candidate)
     db.commit()
-    return success_response(message="Candidate deleted")
+    return success_response(message="Candidate archived")
+
+
+@router.post("/{candidate_id}/unarchive")
+def unarchive_candidate(
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_edit_candidates),
+):
+    candidate = _get_candidate_or_404(db, candidate_id, current_user)
+    candidate.is_archived = False
+    log_activity(
+        db, EntityType.CANDIDATE, candidate.id, ActivityAction.STATUS_CHANGED,
+        f"Candidate '{candidate.name}' was restored from archive", current_user.id,
+    )
+    db.commit()
+    db.refresh(candidate)
+    return success_response(data=_candidate_to_response(candidate, db), message="Candidate restored")
+
+
+@router.delete("/{candidate_id}/permanent")
+def permanently_delete_candidate(
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not candidate:
+        raise NotFoundException("Candidate not found")
+    name = candidate.name
+    db.delete(candidate)
+    log_activity(
+        db, EntityType.CANDIDATE, candidate_id, ActivityAction.DELETED,
+        f"Candidate '{name}' was permanently deleted", current_user.id,
+    )
+    db.commit()
+    return success_response(message="Candidate permanently deleted")
 
 
 @router.post("/{candidate_id}/assign-job")

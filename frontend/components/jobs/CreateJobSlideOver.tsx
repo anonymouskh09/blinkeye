@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +17,7 @@ import { BILLING_MODEL_LABELS, SERVICE_MODEL_LABELS } from "@/types";
 const schema = z.object({
   title: z.string().min(1, "Required"),
   client_id: z.string().min(1, "Required"),
-  engagement_id: z.string().min(1, "Engagement is required"),
+  engagement_id: z.string().optional(),
   location: z.string().optional(),
   job_type: z.enum(["full-time", "part-time", "contract"]),
   salary_min: z.string().optional(),
@@ -39,6 +38,7 @@ interface CreateJobSlideOverProps {
   onCreated?: () => void;
   prefillClientId?: string;
   prefillEngagementId?: string;
+  prefillRecruiterId?: string;
 }
 
 export default function CreateJobSlideOver({
@@ -47,6 +47,7 @@ export default function CreateJobSlideOver({
   onCreated,
   prefillClientId = "",
   prefillEngagementId = "",
+  prefillRecruiterId = "",
 }: CreateJobSlideOverProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [recruiters, setRecruiters] = useState<User[]>([]);
@@ -97,7 +98,7 @@ export default function CreateJobSlideOver({
       required_skills: "",
       experience_required: "",
       description: "",
-      assigned_recruiter_id: "",
+      assigned_recruiter_id: prefillRecruiterId,
     });
     Promise.all([
       api.get<ApiResponse<PaginatedData<Client>>>("/clients", {
@@ -112,7 +113,7 @@ export default function CreateJobSlideOver({
         u.data.data.items.filter((x) => ["recruiter", "manager", "admin"].includes(x.role))
       );
     });
-  }, [open, prefillClientId, prefillEngagementId, reset]);
+  }, [open, prefillClientId, prefillEngagementId, prefillRecruiterId, reset]);
 
   useEffect(() => {
     if (!open || !selectedClientId) {
@@ -129,12 +130,9 @@ export default function CreateJobSlideOver({
         setEngagements(items);
         const stillValid = items.some((e) => String(e.id) === selectedEngagementId);
         if (!stillValid) {
-          setValue(
-            "engagement_id",
-            prefillEngagementId && items.some((e) => String(e.id) === prefillEngagementId)
-              ? prefillEngagementId
-              : ""
-          );
+          const prefillOk =
+            prefillEngagementId && items.some((e) => String(e.id) === prefillEngagementId);
+          setValue("engagement_id", prefillOk ? prefillEngagementId : "");
         }
       })
       .catch(() => {
@@ -150,15 +148,11 @@ export default function CreateJobSlideOver({
   );
 
   const onSubmit = async (data: FormData) => {
-    if (!data.engagement_id) {
-      toast.error("Create an Engagement for this Client before creating a Job.");
-      return;
-    }
     try {
       await api.post("/jobs", {
         ...data,
         client_id: Number(data.client_id),
-        engagement_id: Number(data.engagement_id),
+        engagement_id: data.engagement_id ? Number(data.engagement_id) : null,
         salary_min: data.salary_min ? Number(data.salary_min) : null,
         salary_max: data.salary_max ? Number(data.salary_max) : null,
         number_of_positions: Number(data.number_of_positions),
@@ -182,19 +176,14 @@ export default function CreateJobSlideOver({
       open={open}
       onClose={onClose}
       title="Create Job"
-      subtitle="Jobs must belong to a Client Engagement"
+      subtitle="Link to a client — engagement is optional"
       width="xl"
       footer={
         <div className="flex gap-3 justify-end">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            type="submit"
-            form="create-job-form"
-            loading={isSubmitting}
-            disabled={!engagements.length && !!selectedClientId}
-          >
+          <Button type="submit" form="create-job-form" loading={isSubmitting}>
             Create Job
           </Button>
         </div>
@@ -212,35 +201,28 @@ export default function CreateJobSlideOver({
             {...register("client_id")}
           />
           <Select
-            label="Engagement *"
+            label="Engagement (optional)"
             placeholder={
               !selectedClientId
                 ? "Select a client first"
                 : loadingEngagements
                   ? "Loading engagements..."
                   : engagements.length
-                    ? "Select engagement"
-                    : "No engagements — create one first"
+                    ? "None — optional"
+                    : "No engagements yet (optional)"
             }
-            disabled={!selectedClientId || loadingEngagements || !engagements.length}
-            options={engagements.map((e) => ({
-              value: String(e.id),
-              label: `${e.engagement_name} (${e.status})`,
-            }))}
+            disabled={!selectedClientId || loadingEngagements}
+            options={[
+              { value: "", label: "None" },
+              ...engagements.map((e) => ({
+                value: String(e.id),
+                label: `${e.engagement_name} (${e.status})`,
+              })),
+            ]}
             error={errors.engagement_id?.message}
             {...register("engagement_id")}
           />
         </div>
-
-        {selectedClientId && !loadingEngagements && !engagements.length && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            This client has no Engagements.{" "}
-            <Link href={`/clients/${selectedClientId}`} className="font-semibold underline">
-              Create an Engagement first
-            </Link>{" "}
-            before creating a Job.
-          </div>
-        )}
 
         {selectedEngagement && (
           <div className="rounded-lg border border-primary/20 bg-primary-50/50 px-3 py-2 text-xs text-slate-700">

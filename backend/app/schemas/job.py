@@ -7,7 +7,7 @@ from app.models.enums import BillingModel, JobStatus, JobType, ServiceModel
 
 class JobBase(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    engagement_id: int
+    engagement_id: int | None = None
     location: str | None = None
     job_type: JobType = JobType.FULL_TIME
     salary_min: int | None = None
@@ -28,12 +28,19 @@ class JobBase(BaseModel):
 
 
 class JobCreate(JobBase):
-    # Optional for UX; server derives authoritative client_id from engagement.
+    # Required when engagement is omitted; otherwise derived from engagement.
     client_id: int | None = None
+
+    @model_validator(mode="after")
+    def require_client_or_engagement(self):
+        if self.engagement_id is None and self.client_id is None:
+            raise ValueError("client_id is required when engagement_id is not provided")
+        return self
 
 
 class JobUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
+    client_id: int | None = None
     engagement_id: int | None = None
     location: str | None = None
     job_type: JobType | None = None
@@ -54,7 +61,7 @@ class JobResponse(BaseModel):
     title: str
     client_id: int
     client_name: str | None = None
-    engagement_id: int
+    engagement_id: int | None = None
     engagement_name: str | None = None
     service_model: ServiceModel | None = None
     billing_model: BillingModel | None = None

@@ -12,6 +12,7 @@ from app.models.job import Job
 from app.models.user import User
 from app.schemas.engagement import EngagementCreate, EngagementResponse, EngagementUpdate
 from app.services.activity_service import log_activity
+from app.services.permission_service import can_see_client
 
 router = APIRouter(prefix="/engagements", tags=["engagements"])
 
@@ -92,15 +93,18 @@ def list_engagements(
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Engagement)
-    if current_user.role != UserRole.ADMIN:
+    if client_id:
+        if not can_see_client(db, current_user, client_id):
+            raise NotFoundException("Client not found")
+        query = query.filter(Engagement.client_id == client_id)
+    elif current_user.role != UserRole.ADMIN:
+        # Global list: only engagements this user is assigned to (or clients with their jobs)
         query = query.filter(
             (Engagement.assigned_recruiter_id == current_user.id)
             | (Engagement.client_id.in_(
                 db.query(Job.client_id).filter(Job.assigned_recruiter_id == current_user.id).distinct()
             ))
         )
-    if client_id:
-        query = query.filter(Engagement.client_id == client_id)
     if status:
         query = query.filter(Engagement.status == status)
     if search:

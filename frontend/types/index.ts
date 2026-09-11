@@ -3,7 +3,7 @@ export type UserStatus = "active" | "inactive";
 export type ClientStatus = "active" | "inactive";
 export type ClientStage = "prospect" | "lead" | "active" | "on_hold" | "customer" | "inactive";
 export type JobType = "full-time" | "part-time" | "contract";
-export type JobStatus = "active" | "pending" | "on-hold" | "closed" | "filled";
+export type JobStatus = "active" | "pending" | "on-hold" | "closed" | "filled" | "archived";
 export type PipelineStage =
   | "applied"
   | "cv_reviewed"
@@ -190,7 +190,7 @@ export interface Job {
   title: string;
   client_id: number;
   client_name?: string;
-  engagement_id: number;
+  engagement_id?: number | null;
   engagement_name?: string;
   service_model?: ServiceModel;
   billing_model?: BillingModel;
@@ -409,6 +409,7 @@ export interface Candidate {
   educations?: CandidateEducation[];
   skill_levels?: CandidateSkillLevel[];
   candidate_status?: CandidateStatus;
+  is_archived?: boolean;
   candidate_rating?: number | null;
   assigned_job_id?: number | null;
   assigned_job_title?: string | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Upload, X } from "lucide-react";
+import { Archive, Download, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ListBulkBarProps {
@@ -10,7 +10,9 @@ interface ListBulkBarProps {
   onImportCsv?: () => void;
   onExportCsv?: () => void;
   onDownloadTemplate?: () => void;
+  onArchiveSelected?: () => void;
   importing?: boolean;
+  archiving?: boolean;
   className?: string;
 }
 
@@ -21,7 +23,9 @@ export default function ListBulkBar({
   onImportCsv,
   onExportCsv,
   onDownloadTemplate,
+  onArchiveSelected,
   importing,
+  archiving,
   className,
 }: ListBulkBarProps) {
   return (
@@ -53,7 +57,7 @@ export default function ListBulkBar({
       </div>
 
       <div className="flex items-center gap-2">
-        {onDownloadTemplate && (
+        {selectedCount > 0 && onDownloadTemplate && (
           <button
             type="button"
             onClick={onDownloadTemplate}
@@ -62,7 +66,7 @@ export default function ListBulkBar({
             Template
           </button>
         )}
-        {onImportCsv && (
+        {selectedCount > 0 && onImportCsv && (
           <button
             type="button"
             onClick={onImportCsv}
@@ -73,14 +77,25 @@ export default function ListBulkBar({
             {importing ? "Importing…" : "Import CSV"}
           </button>
         )}
-        {onExportCsv && (
+        {selectedCount > 0 && onExportCsv && (
           <button
             type="button"
             onClick={onExportCsv}
             className="inline-flex items-center gap-1.5 rounded-lg border border-[#1F574A]/30 bg-[#1F574A]/5 px-2.5 py-1.5 text-xs font-semibold text-[#1F574A] transition hover:bg-[#1F574A]/10"
           >
             <Download className="h-3.5 w-3.5" />
-            Export{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            Export ({selectedCount})
+          </button>
+        )}
+        {selectedCount > 0 && onArchiveSelected && (
+          <button
+            type="button"
+            onClick={onArchiveSelected}
+            disabled={archiving}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            {archiving ? "Archiving…" : `Archive (${selectedCount})`}
           </button>
         )}
       </div>

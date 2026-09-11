@@ -49,8 +49,10 @@ function CandidatesPageContent() {
   const [locationFilter, setLocationFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [startWithForm, setStartWithForm] = useState(false);
+  const [defaultJobId, setDefaultJobId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchCandidates = useCallback(async () => {
@@ -74,6 +76,8 @@ function CandidatesPageContent() {
     if (t && SUB_TABS.some((x) => x.id === t)) setSubTab(t);
     if (searchParams.get("create") === "form") {
       setStartWithForm(true);
+      const jobId = searchParams.get("job_id");
+      setDefaultJobId(jobId ? Number(jobId) : null);
       setCreateOpen(true);
       router.replace("/candidates", { scroll: false });
     }
@@ -133,6 +137,33 @@ function CandidatesPageContent() {
       ])
     );
     toast.success(`Exported ${exportRows.length} candidate(s)`);
+  };
+
+  const handleBulkArchive = async () => {
+    if (!selectedIds.length) return;
+    if (
+      !confirm(
+        `Archive ${selectedIds.length} selected candidate${selectedIds.length === 1 ? "" : "s"}?`
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/candidates/${id}`)));
+      toast.success(
+        selectedIds.length === 1
+          ? "Candidate archived"
+          : `${selectedIds.length} candidates archived`
+      );
+      setSelectedIds([]);
+      fetchCandidates();
+    } catch {
+      toast.error("Failed to archive some candidates");
+      fetchCandidates();
+    } finally {
+      setArchiving(false);
+    }
   };
 
   const handleTemplate = () => {
@@ -224,7 +255,9 @@ function CandidatesPageContent() {
               onImportCsv={handleImport}
               onExportCsv={handleExport}
               onDownloadTemplate={handleTemplate}
+              onArchiveSelected={handleBulkArchive}
               importing={importing}
+              archiving={archiving}
             />
 
             <div className="px-6 py-5">
@@ -272,9 +305,11 @@ function CandidatesPageContent() {
         onClose={() => {
           setCreateOpen(false);
           setStartWithForm(false);
+          setDefaultJobId(null);
         }}
         onCreated={fetchCandidates}
         startWithForm={startWithForm}
+        defaultJobId={defaultJobId}
       />
 
       <Modal open={filterOpen} onClose={() => setFilterOpen(false)} title="Filters" size="sm">

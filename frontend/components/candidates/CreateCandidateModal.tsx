@@ -58,6 +58,8 @@ interface Props {
   defaultFolderId?: number;
   /** Open directly on Complete a Form slide-over */
   startWithForm?: boolean;
+  /** Prefill job assignment when creating from a job */
+  defaultJobId?: number | null;
 }
 
 function buildFormData(data: ParsedResume, cvFile: File): FormData {
@@ -81,6 +83,7 @@ export default function CreateCandidateModal({
   onCreated,
   defaultFolderId,
   startWithForm = false,
+  defaultJobId = null,
 }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -125,10 +128,11 @@ export default function CreateCandidateModal({
   useEffect(() => {
     if (!open) return;
     if (startWithForm) setFormOpen(true);
+    if (defaultJobId) setSelectedJob(String(defaultJobId));
     api.get<ApiResponse<PaginatedData<Job>>>("/jobs", { params: { page_size: 100, status: "active" } })
       .then((r) => setJobs(r.data.data.items))
       .catch(() => setJobs([]));
-  }, [open, startWithForm]);
+  }, [open, startWithForm, defaultJobId]);
 
   const applyParsedToReview = (p: ParsedResume) => {
     setReview({
@@ -438,7 +442,13 @@ export default function CreateCandidateModal({
           else setFormOpen(false);
         }}
         defaultFolderId={defaultFolderId}
-        assignJobId={selectedJob ? Number(selectedJob) : null}
+        assignJobId={
+          selectedJob
+            ? Number(selectedJob)
+            : defaultJobId
+              ? Number(defaultJobId)
+              : null
+        }
         onCreated={(candidateId) => {
           onCreated();
           handleClose();

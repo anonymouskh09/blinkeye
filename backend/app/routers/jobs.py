@@ -33,7 +33,11 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 def _job_to_response(job: Job, db: Session) -> dict:
     client = db.query(Client).filter(Client.id == job.client_id).first()
-    engagement = db.query(Engagement).filter(Engagement.id == job.engagement_id).first()
+    engagement = (
+        db.query(Engagement).filter(Engagement.id == job.engagement_id).first()
+        if job.engagement_id
+        else None
+    )
     recruiter = None
     if job.assigned_recruiter_id:
         recruiter = db.query(User).filter(User.id == job.assigned_recruiter_id).first()
@@ -111,6 +115,8 @@ def list_jobs(
         query = query.filter(or_(*clauses))
     if status:
         query = query.filter(Job.status == status)
+    else:
+        query = query.filter(Job.status != JobStatus.ARCHIVED)
     if client_id:
         query = query.filter(Job.client_id == client_id)
     if engagement_id:
@@ -135,14 +141,21 @@ def create_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_add_jobs),
 ):
-    engagement = db.query(Engagement).filter(Engagement.id == payload.engagement_id).first()
-    if not engagement:
-        raise BadRequestException(
-            "Engagement not found. Create an Engagement for this Client before creating a Job."
-        )
-
-    if payload.client_id is not None and payload.client_id != engagement.client_id:
-        raise BadRequestException("Selected Engagement does not belong to the selected Client.")
+    engagement = None
+    if payload.engagement_id:
+        engagement = db.query(Engagement).filter(Engagement.id == payload.engagement_id).first()
+        if not engagement:
+            raise BadRequestException("Engagement not found.")
+        if payload.client_id is not None and payload.client_id != engagement.client_id:
+            raise BadRequestException("Selected Engagement does not belong to the selected Client.")
+        client_id = engagement.client_id
+    else:
+        if not payload.client_id:
+            raise BadRequestException("Client is required.")
+        client = db.query(Client).filter(Client.id == payload.client_id).first()
+        if not client:
+            raise NotFoundException("Client not found")
+        client_id = client.id
 
     if payload.assigned_recruiter_id:
         recruiter = db.query(User).filter(User.id == payload.assigned_recruiter_id).first()
@@ -150,15 +163,17 @@ def create_job(
             raise NotFoundException("Recruiter not found")
 
     data = payload.model_dump(exclude={"client_id"})
-    data["client_id"] = engagement.client_id
+    data["client_id"] = client_id
+    data["engagement_id"] = engagement.id if engagement else None
     if not data.get("assigned_recruiter_id") and current_user.role != UserRole.ADMIN:
         data["assigned_recruiter_id"] = current_user.id
     job = Job(**data)
     db.add(job)
     db.flush()
+    engagement_label = engagement.engagement_name if engagement else "no engagement"
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.CREATED,
-        f"Job '{job.title}' was created under engagement '{engagement.engagement_name}'", current_user.id,
+        f"Job '{job.title}' was created ({engagement_label})", current_user.id,
     )
     db.commit()
     db.refresh(job)
@@ -192,12 +207,26 @@ def update_job(
     update_data = payload.model_dump(exclude_unset=True)
 
     if "engagement_id" in update_data:
-        engagement = db.query(Engagement).filter(Engagement.id == update_data["engagement_id"]).first()
-        if not engagement:
-            raise BadRequestException(
-                "Engagement not found. Create an Engagement for this Client before updating the Job."
-            )
-        update_data["client_id"] = engagement.client_id
+        if update_data["engagement_id"] is None:
+            pass
+        else:
+            engagement = db.query(Engagement).filter(Engagement.id == update_data["engagement_id"]).first()
+            if not engagement:
+                raise BadRequestException("Engagement not found.")
+            update_data["client_id"] = engagement.client_id
+
+    if "client_id" in update_data and update_data["client_id"] is not None:
+        new_client = db.query(Client).filter(Client.id == update_data["client_id"]).first()
+        if not new_client:
+            raise NotFoundException("Client not found")
+        # Engagement must belong to the new client (or be cleared)
+        next_engagement_id = update_data.get("engagement_id", job.engagement_id)
+        if "engagement_id" in update_data and update_data["engagement_id"] is None:
+            next_engagement_id = None
+        if next_engagement_id:
+            engagement = db.query(Engagement).filter(Engagement.id == next_engagement_id).first()
+            if not engagement or engagement.client_id != update_data["client_id"]:
+                update_data["engagement_id"] = None
 
     for key, value in update_data.items():
         setattr(job, key, value)
@@ -219,13 +248,51 @@ def delete_job(
 ):
     job = get_job_or_404(db, job_id)
     require_job_access(current_user, job, db)
-    job.status = JobStatus.CLOSED
+    job.status = JobStatus.ARCHIVED
     log_activity(
         db, EntityType.JOB, job.id, ActivityAction.DELETED,
-        f"Job '{job.title}' was closed", current_user.id,
+        f"Job '{job.title}' was archived", current_user.id,
     )
     db.commit()
-    return success_response(message="Job closed")
+    return success_response(message="Job archived")
+
+
+@router.post("/{job_id}/unarchive")
+def unarchive_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_edit_jobs),
+):
+    job = get_job_or_404(db, job_id)
+    require_job_access(current_user, job, db)
+    job.status = JobStatus.ACTIVE
+    log_activity(
+        db, EntityType.JOB, job.id, ActivityAction.STATUS_CHANGED,
+        f"Job '{job.title}' was restored from archive", current_user.id,
+    )
+    db.commit()
+    db.refresh(job)
+    return success_response(data=_job_to_response(job, db), message="Job restored")
+
+
+@router.delete("/{job_id}/permanent")
+def permanently_delete_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    from app.models.candidate_job import CandidateJobAssignment
+
+    job = get_job_or_404(db, job_id)
+    title = job.title
+    db.query(CandidateJobAssignment).filter(CandidateJobAssignment.job_id == job_id).delete()
+    db.delete(job)
+    log_activity(
+        db, EntityType.JOB, job_id, ActivityAction.DELETED,
+        f"Job '{title}' was permanently deleted", current_user.id,
+    )
+    db.commit()
+    return success_response(message="Job permanently deleted")
 
 
 @router.post("/{job_id}/activities")

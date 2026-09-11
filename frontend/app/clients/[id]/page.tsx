@@ -157,11 +157,29 @@ function ClientDetailPageInner() {
     fetchClient();
   };
 
-  const removeTeamMember = async (teamId: number) => {
-    if (!confirm("Remove team member?")) return;
-    await api.delete(`/clients/${id}/team/${teamId}`);
-    toast.success("Removed");
-    fetchClient();
+  const removeTeamMember = async (teamId: number, userId?: number) => {
+    if (!confirm("Remove team member from this client?")) return;
+    try {
+      await api.delete(`/clients/${id}/team/${teamId}`);
+      toast.success("Team member removed");
+      fetchClient();
+    } catch (err: unknown) {
+      // Fallback if membership id mismatches — try user_id
+      if (userId) {
+        try {
+          await api.delete(`/clients/${id}/team/${userId}`);
+          toast.success("Team member removed");
+          fetchClient();
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Failed to remove team member";
+      toast.error(message);
+    }
   };
 
   const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,7 +351,14 @@ function ClientDetailPageInner() {
                       Hide
                     </button>
                   )}
-                  <button type="button" onClick={() => removeTeamMember(m.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                  <button
+                    type="button"
+                    onClick={() => removeTeamMember(m.id, m.user_id)}
+                    className="text-gray-400 hover:text-red-500"
+                    title="Remove from team"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
               {(client.hidden_members || []).filter((h) => !client.team?.some((t) => t.user_id === h.user_id)).length > 0 && (

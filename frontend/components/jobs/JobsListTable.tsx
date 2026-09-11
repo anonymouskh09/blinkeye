@@ -18,6 +18,7 @@ const JOB_STAGES: Record<string, string> = {
   "on-hold": "ON HOLD",
   closed: "CLOSED",
   filled: "FILLED",
+  archived: "ARCHIVED",
 };
 
 const STATUS_OPTIONS: { value: JobStatus; label: string }[] = [

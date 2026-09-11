@@ -1,4 +1,4 @@
-from sqlalchemy import ARRAY, ForeignKey, Integer, String, Text
+from sqlalchemy import ARRAY, Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,7 @@ class Candidate(Base, TimestampMixin):
         default=CandidateStatus.NEW.value,
         comment="Legacy global CRM status only — not job pipeline truth",
     )
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     candidate_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assigned_job_id: Mapped[int | None] = mapped_column(
         ForeignKey("jobs.id"),

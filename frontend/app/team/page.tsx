@@ -222,13 +222,13 @@ export default function TeamPage() {
       return;
     }
     setMenuId(null);
-    if (!confirm(`Delete ${user.name}? This will deactivate their account.`)) return;
+    if (!confirm(`Archive ${user.name}? You can restore them later from Archive.`)) return;
     try {
       await api.delete(`/users/${user.id}`);
-      toast.success("Team member deleted");
+      toast.success("Team member archived");
       fetchTeam();
     } catch {
-      toast.error("Failed to delete team member");
+      toast.error("Failed to archive team member");
     }
   };
 
@@ -350,7 +350,7 @@ export default function TeamPage() {
                             className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4" />
-                            Delete
+                            Archive
                           </button>
                         </div>
                       )}

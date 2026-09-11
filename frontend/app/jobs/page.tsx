@@ -46,18 +46,25 @@ function JobsPageInner() {
   const [createOpen, setCreateOpen] = useState(false);
   const [prefillClientId, setPrefillClientId] = useState("");
   const [prefillEngagementId, setPrefillEngagementId] = useState("");
+  const [prefillRecruiterId, setPrefillRecruiterId] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
-  const openCreate = useCallback((clientId = "", engagementId = "") => {
+  const openCreate = useCallback((clientId = "", engagementId = "", recruiterId = "") => {
     setPrefillClientId(clientId);
     setPrefillEngagementId(engagementId);
+    setPrefillRecruiterId(recruiterId);
     setCreateOpen(true);
   }, []);
 
   useEffect(() => {
     if (searchParams.get("create") === "1") {
-      openCreate(searchParams.get("client_id") || "", searchParams.get("engagement_id") || "");
+      openCreate(
+        searchParams.get("client_id") || "",
+        searchParams.get("engagement_id") || "",
+        searchParams.get("recruiter_id") || ""
+      );
       router.replace("/jobs", { scroll: false });
     }
   }, [searchParams, openCreate, router]);
@@ -121,6 +128,31 @@ function JobsPageInner() {
       ])
     );
     toast.success(`Exported ${exportRows.length} job(s)`);
+  };
+
+  const handleBulkArchive = async () => {
+    if (!selectedIds.length) return;
+    if (
+      !confirm(
+        `Archive ${selectedIds.length} selected job${selectedIds.length === 1 ? "" : "s"}?`
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/jobs/${id}`)));
+      toast.success(
+        selectedIds.length === 1 ? "Job archived" : `${selectedIds.length} jobs archived`
+      );
+      setSelectedIds([]);
+      fetchJobs();
+    } catch {
+      toast.error("Failed to archive some jobs");
+      fetchJobs();
+    } finally {
+      setArchiving(false);
+    }
   };
 
   const handleTemplate = () => {
@@ -202,7 +234,9 @@ function JobsPageInner() {
             onImportCsv={handleImport}
             onExportCsv={handleExport}
             onDownloadTemplate={handleTemplate}
+            onArchiveSelected={handleBulkArchive}
             importing={importing}
+            archiving={archiving}
           />
         )}
 
@@ -326,6 +360,7 @@ function JobsPageInner() {
         onCreated={fetchJobs}
         prefillClientId={prefillClientId}
         prefillEngagementId={prefillEngagementId}
+        prefillRecruiterId={prefillRecruiterId}
       />
     </PageWrapper>
   );

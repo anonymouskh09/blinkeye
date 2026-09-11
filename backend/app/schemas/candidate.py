@@ -106,6 +106,7 @@ class CandidateResponse(BaseModel):
     educations: list[dict] | None = None
     skill_levels: list[dict] | None = None
     candidate_status: str = CandidateStatus.NEW.value
+    is_archived: bool = False
     candidate_rating: int | None = None
     assigned_job_id: int | None = None
     assigned_job_title: str | None = None

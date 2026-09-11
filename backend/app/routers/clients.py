@@ -379,6 +379,55 @@ def delete_client(
     return success_response(message="Client archived")
 
 
+@router.post("/{client_id}/unarchive")
+def unarchive_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_edit_clients),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise NotFoundException("Client not found")
+    client.status = ClientStatus.ACTIVE
+    log_activity(
+        db, EntityType.CLIENT, client.id, ActivityAction.STATUS_CHANGED,
+        f"Client '{client.company_name}' was restored from archive", current_user.id,
+    )
+    db.commit()
+    db.refresh(client)
+    return success_response(data=_client_to_response(client, db), message="Client restored")
+
+
+@router.delete("/{client_id}/permanent")
+def permanently_delete_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise NotFoundException("Client not found")
+    name = client.company_name
+    # Clear related rows that may block hard delete
+    db.query(ClientTeamMember).filter(ClientTeamMember.client_id == client_id).delete()
+    db.query(ClientHiddenMember).filter(ClientHiddenMember.client_id == client_id).delete()
+    db.query(ClientContact).filter(ClientContact.client_id == client_id).delete()
+    db.query(ClientGuest).filter(ClientGuest.client_id == client_id).delete()
+    db.query(ClientAttachment).filter(ClientAttachment.client_id == client_id).delete()
+    db.query(ClientActivity).filter(ClientActivity.client_id == client_id).delete()
+    for engagement in db.query(Engagement).filter(Engagement.client_id == client_id).all():
+        db.delete(engagement)
+    for job in db.query(Job).filter(Job.client_id == client_id).all():
+        db.delete(job)
+    db.delete(client)
+    log_activity(
+        db, EntityType.CLIENT, client_id, ActivityAction.DELETED,
+        f"Client '{name}' was permanently deleted", current_user.id,
+    )
+    db.commit()
+    return success_response(message="Client permanently deleted")
+
+
 @router.post("/{client_id}/contacts")
 def add_contact(
     client_id: int,
@@ -486,9 +535,19 @@ def remove_team_member(
     tm = db.query(ClientTeamMember).filter(
         ClientTeamMember.id == team_id, ClientTeamMember.client_id == client_id
     ).first()
+    # Fallback: some clients may send user_id instead of membership id
+    if not tm:
+        tm = db.query(ClientTeamMember).filter(
+            ClientTeamMember.user_id == team_id, ClientTeamMember.client_id == client_id
+        ).first()
     if not tm:
         raise NotFoundException("Team member not found")
     user = db.query(User).filter(User.id == tm.user_id).first()
+    # Also clear hide row for this user on this client
+    db.query(ClientHiddenMember).filter(
+        ClientHiddenMember.client_id == client_id,
+        ClientHiddenMember.user_id == tm.user_id,
+    ).delete()
     db.delete(tm)
     log_activity(
         db, EntityType.CLIENT, client_id, ActivityAction.UPDATED,

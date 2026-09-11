@@ -38,6 +38,7 @@ class JobStatus(str, enum.Enum):
     ON_HOLD = "on-hold"
     CLOSED = "closed"
     FILLED = "filled"
+    ARCHIVED = "archived"
 
 
 class CandidateStatus(str, enum.Enum):

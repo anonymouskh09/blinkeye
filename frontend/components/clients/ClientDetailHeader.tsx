@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Globe, Lock, MoreVertical, Tag, Search, MapPin, Calendar,
-  Briefcase, ArrowLeftRight, Pencil, Archive, Upload, Plus, ArrowLeft,
+  Briefcase, ArrowLeftRight, Pencil, Archive, Upload, Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import ClientAvatar, { UserAvatar } from "@/components/clients/ClientAvatar";
@@ -20,7 +20,7 @@ import {
 } from "@/lib/clientTags";
 import { cn, formatDate } from "@/lib/utils";
 import api from "@/lib/api";
-import type { Client, ClientStage } from "@/types";
+import type { ApiResponse, Client, ClientStage, Job, PaginatedData } from "@/types";
 
 interface Props {
   client: Client;
@@ -42,6 +42,11 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
   const [newTagIcon, setNewTagIcon] = useState<string | undefined>();
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [assignJobOpen, setAssignJobOpen] = useState(false);
+  const [availableJobs, setAvailableJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [assigningJob, setAssigningJob] = useState(false);
   const [editForm, setEditForm] = useState({
     company_name: client.company_name,
     phone: client.phone || "",
@@ -61,12 +66,13 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
   }, [client]);
 
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (tagsRef.current && !tagsRef.current.contains(e.target as Node)) setTagsOpen(false);
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (tagsRef.current && !tagsRef.current.contains(target)) setTagsOpen(false);
+      if (menuRef.current && !menuRef.current.contains(target)) setMenuOpen(false);
     };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
   const saveTags = async (tags: string[], customs: CustomTagDef[]) => {
@@ -122,6 +128,48 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
   const saveStatus = async () => {
     onStageChange(selectedStatus);
     setStatusOpen(false);
+  };
+
+  const openAssignExistingJob = () => {
+    setMenuOpen(false);
+    setSelectedJobId("");
+    setAssignJobOpen(true);
+    setLoadingJobs(true);
+    api
+      .get<ApiResponse<PaginatedData<Job>>>("/jobs", { params: { page_size: 100 } })
+      .then((res) => {
+        const items = (res.data.data.items || []).filter((j) => j.client_id !== client.id);
+        setAvailableJobs(items);
+      })
+      .catch(() => {
+        setAvailableJobs([]);
+        toast.error("Failed to load jobs");
+      })
+      .finally(() => setLoadingJobs(false));
+  };
+
+  const assignExistingJob = async () => {
+    if (!selectedJobId) {
+      toast.error("Select a job");
+      return;
+    }
+    setAssigningJob(true);
+    try {
+      await api.put(`/jobs/${selectedJobId}`, {
+        client_id: client.id,
+        engagement_id: null,
+      });
+      toast.success("Job assigned to this client");
+      setAssignJobOpen(false);
+      onUpdate();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Failed to assign job";
+      toast.error(message);
+    } finally {
+      setAssigningJob(false);
+    }
   };
 
   const filteredTags = [
@@ -190,7 +238,76 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
                     )}
                   </span>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">{client.company_name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">{client.company_name}</h1>
+                  <div className="relative shrink-0" ref={menuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen((o) => !o)}
+                      className="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-[#1F574A]"
+                      aria-label="Client actions"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                    {menuOpen && (
+                      <div className="absolute left-0 top-full mt-1 z-40 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 animate-slide-down">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={() => { setEditOpen(true); setMenuOpen(false); }}
+                        >
+                          <Pencil className="h-4 w-4 text-gray-500" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            router.push(`/jobs?create=1&client_id=${client.id}`);
+                          }}
+                        >
+                          <Briefcase className="h-4 w-4 text-gray-500" /> Add Job
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={openAssignExistingJob}
+                        >
+                          <Briefcase className="h-4 w-4 text-gray-500" /> Assign Existing Job
+                        </button>
+                        {client.owner_id && (
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => {
+                              setMenuOpen(false);
+                              router.push(
+                                `/jobs?create=1&client_id=${client.id}&recruiter_id=${client.owner_id}`
+                              );
+                            }}
+                          >
+                            <Briefcase className="h-4 w-4 text-gray-500" /> Assign Job to Owner
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={() => { setStatusOpen(true); setMenuOpen(false); }}
+                        >
+                          <ArrowLeftRight className="h-4 w-4 text-gray-500" /> Change Status
+                        </button>
+                        <div className="my-1 border-t border-gray-100" />
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                          onClick={() => { setMenuOpen(false); onArchive(); }}
+                        >
+                          <Archive className="h-4 w-4" /> Archive
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500">
                   {client.location && (
@@ -220,9 +337,9 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
               {client.owner_name && (
                 <div className="flex items-center gap-3 shrink-0 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
                   <UserAvatar name={client.owner_name} size="md" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Owner</p>
-                    <p className="text-xs font-semibold text-gray-800">{client.owner_name}</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate">{client.owner_name}</p>
                   </div>
                 </div>
               )}
@@ -363,6 +480,38 @@ export default function ClientDetailHeader({ client, onUpdate, onStageChange, on
           <div className="flex gap-2 pt-1">
             <Button onClick={saveStatus}>Save Status</Button>
             <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
+          </div>
+        </div>
+      </AnimatedModal>
+
+      <AnimatedModal
+        open={assignJobOpen}
+        onClose={() => setAssignJobOpen(false)}
+        title="Assign Existing Job"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Pick a job from another client to move it under <span className="font-semibold text-gray-800">{client.company_name}</span>.
+          </p>
+          <Select
+            label="Job"
+            placeholder={loadingJobs ? "Loading jobs…" : availableJobs.length ? "Select a job" : "No other jobs available"}
+            disabled={loadingJobs || !availableJobs.length}
+            options={availableJobs.map((j) => ({
+              value: String(j.id),
+              label: `${j.title}${j.client_name ? ` · ${j.client_name}` : ""}`,
+            }))}
+            value={selectedJobId}
+            onChange={(e) => setSelectedJobId(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button onClick={assignExistingJob} loading={assigningJob} disabled={!selectedJobId}>
+              Assign Job
+            </Button>
+            <Button variant="outline" onClick={() => setAssignJobOpen(false)}>
+              Cancel
+            </Button>
           </div>
         </div>
       </AnimatedModal>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus, RefreshCw, Filter, MoreVertical,
   ArrowUpDown, LayoutGrid, List, Pencil, Briefcase, ArrowLeftRight, Archive,
@@ -48,8 +48,17 @@ const emptyForm = {
 };
 
 export default function ClientsPage() {
+  return (
+    <Suspense fallback={<PageWrapper><TableSkeleton rows={6} cols={8} /></PageWrapper>}>
+      <ClientsPageContent />
+    </Suspense>
+  );
+}
+
+function ClientsPageContent() {
   const { user, canViewClients, canAddClients, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!authLoading && !canViewClients) router.replace("/my-jobs");
@@ -76,6 +85,7 @@ export default function ClientsPage() {
   const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const toolbarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -186,6 +196,16 @@ export default function ClientsPage() {
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   useEffect(() => {
+    if (searchParams.get("create") !== "1") return;
+    if (!canAddClients) {
+      router.replace("/clients", { scroll: false });
+      return;
+    }
+    setCreateOpen(true);
+    router.replace("/clients", { scroll: false });
+  }, [searchParams, canAddClients, router]);
+
+  useEffect(() => {
     if (!createOpen) return;
     setLoadingTeam(true);
     api.get<ApiResponse<PaginatedData<User>>>("/users", { params: { page_size: 100, status: "active" } })
@@ -273,6 +293,31 @@ export default function ClientsPage() {
       fetchClients();
     } catch {
       toast.error("Failed to archive client");
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (!selectedIds.length) return;
+    if (
+      !confirm(
+        `Archive ${selectedIds.length} selected client${selectedIds.length === 1 ? "" : "s"}? You can find them later under Settings → Archive.`
+      )
+    ) {
+      return;
+    }
+    setArchiving(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/clients/${id}`)));
+      toast.success(
+        selectedIds.length === 1 ? "Client archived" : `${selectedIds.length} clients archived`
+      );
+      setSelectedIds([]);
+      fetchClients();
+    } catch {
+      toast.error("Failed to archive some clients");
+      fetchClients();
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -396,7 +441,9 @@ export default function ClientsPage() {
             onImportCsv={handleImport}
             onExportCsv={handleExport}
             onDownloadTemplate={handleTemplate}
+            onArchiveSelected={handleBulkArchive}
             importing={importing}
+            archiving={archiving}
           />
         )}
 

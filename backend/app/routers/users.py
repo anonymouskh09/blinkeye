@@ -324,4 +324,58 @@ def delete_user(
 
     user.status = UserStatus.INACTIVE
     db.commit()
-    return success_response(message="User deactivated")
+    return success_response(message="User archived")
+
+
+@router.post("/{user_id}/unarchive")
+def unarchive_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise NotFoundException("User not found")
+    user.status = UserStatus.ACTIVE
+    db.commit()
+    db.refresh(user)
+    return success_response(data=_user_to_response(user, db), message="User restored")
+
+
+@router.delete("/{user_id}/permanent")
+def permanently_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise NotFoundException("User not found")
+    if user.id == admin.id:
+        raise BadRequestException("Cannot delete your own account")
+    if user.role == UserRole.ADMIN:
+        other_admins = (
+            db.query(User)
+            .filter(User.role == UserRole.ADMIN, User.id != user.id, User.status == UserStatus.ACTIVE)
+            .count()
+        )
+        if other_admins < 1:
+            raise BadRequestException("Cannot delete the last active admin")
+
+    # Detach FKs that would block delete
+    db.query(Job).filter(Job.assigned_recruiter_id == user_id).update(
+        {Job.assigned_recruiter_id: None}, synchronize_session=False
+    )
+    db.query(Client).filter(Client.owner_id == user_id).update(
+        {Client.owner_id: None}, synchronize_session=False
+    )
+    name = user.name
+    try:
+        db.delete(user)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise BadRequestException(
+            f"Cannot permanently delete '{name}' because related records still reference this user. Keep them archived instead."
+        )
+    return success_response(message="User permanently deleted")

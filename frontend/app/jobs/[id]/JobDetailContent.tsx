@@ -15,6 +15,7 @@ import JobSummaryTab from "@/components/jobs/JobSummaryTab";
 import JobCandidatesTab from "@/components/jobs/JobCandidatesTab";
 import JobSubmissionsTab from "@/components/submissions/JobSubmissionsTab";
 import JobNotesTab from "@/components/jobs/JobNotesTab";
+import CreateCandidateModal from "@/components/candidates/CreateCandidateModal";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import api from "@/lib/api";
@@ -60,6 +61,7 @@ export default function JobDetailPageContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("candidates");
+  const [addCandidateOpen, setAddCandidateOpen] = useState(false);
 
   useEffect(() => {
     const t = searchParams.get("tab") as Tab | null;
@@ -110,9 +112,9 @@ export default function JobDetailPageContent() {
   };
 
   const handleArchive = async () => {
-    if (!confirm("Close this job?")) return;
+    if (!confirm("Archive this job? You can find it later under Archive.")) return;
     await api.delete(`/jobs/${id}`);
-    toast.success("Job closed");
+    toast.success("Job archived");
     router.push("/jobs");
   };
 
@@ -136,6 +138,7 @@ export default function JobDetailPageContent() {
           pipeline={pipeline}
           onUpdate={refreshAll}
           onArchive={handleArchive}
+          onAddCandidate={() => setAddCandidateOpen(true)}
         />
 
         <div className="sub-tabs px-2">
@@ -255,6 +258,18 @@ export default function JobDetailPageContent() {
           )}
         </div>
       </div>
+
+      <CreateCandidateModal
+        open={addCandidateOpen}
+        onClose={() => setAddCandidateOpen(false)}
+        onCreated={() => {
+          setAddCandidateOpen(false);
+          refreshAll();
+          switchTab("candidates");
+        }}
+        startWithForm
+        defaultJobId={job.id}
+      />
     </PageWrapper>
   );
 }

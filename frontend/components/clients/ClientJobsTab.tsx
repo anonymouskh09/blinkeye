@@ -30,5 +30,5 @@ export default function ClientJobsTab({ client, jobs, onRefresh }: Props) {
     job_type: "full-time",
   }));
 
-  return <JobsListTable jobs={mapped} onRefresh={onRefresh} showClient={true} />;
+  return <JobsListTable jobs={mapped} onRefresh={onRefresh} showClient={true} hideToolbar />;
 }

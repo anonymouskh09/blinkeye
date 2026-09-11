@@ -39,9 +39,10 @@ interface Props {
   pipeline: PipelineData | null;
   onUpdate: () => void;
   onArchive: () => void;
+  onAddCandidate?: () => void;
 }
 
-export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: Props) {
+export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive, onAddCandidate }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -213,11 +214,19 @@ export default function JobDetailHeader({ job, pipeline, onUpdate, onArchive }: 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 z-40 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 animate-slide-down">
                   {[
-                    { label: "Add Candidate", icon: UserPlus, action: () => { router.push("/candidates"); setMenuOpen(false); } },
+                    {
+                      label: "Add Candidate",
+                      icon: UserPlus,
+                      action: () => {
+                        setMenuOpen(false);
+                        if (onAddCandidate) onAddCandidate();
+                        else router.push(`/candidates?create=form&job_id=${job.id}`);
+                      },
+                    },
                     { label: "View Pipeline", icon: GitBranch, action: () => { router.push(`/jobs/${job.id}?tab=candidates`); setMenuOpen(false); } },
                     { label: "Edit", icon: Pencil, action: () => { setEditOpen(true); setMenuOpen(false); } },
                     { label: "Change Status", icon: Play, action: () => { setStatusOpen(true); setMenuOpen(false); } },
-                    { label: "Close Job", icon: Archive, action: () => { setMenuOpen(false); onArchive(); } },
+                    { label: "Archive", icon: Archive, action: () => { setMenuOpen(false); onArchive(); } },
                   ].map(({ label, icon: Icon, action }) => (
                     <button key={label} type="button" onClick={action}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
