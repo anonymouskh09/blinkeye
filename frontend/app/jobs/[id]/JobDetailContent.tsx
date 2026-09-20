@@ -15,6 +15,7 @@ import JobSummaryTab from "@/components/jobs/JobSummaryTab";
 import JobCandidatesTab from "@/components/jobs/JobCandidatesTab";
 import JobSubmissionsTab from "@/components/submissions/JobSubmissionsTab";
 import JobNotesTab from "@/components/jobs/JobNotesTab";
+import JobCandidateMatchesTab from "@/components/matching/JobCandidateMatchesTab";
 import CreateCandidateModal from "@/components/candidates/CreateCandidateModal";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import { CardSkeleton } from "@/components/ui/Skeleton";
@@ -29,7 +30,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string
   { id: "submissions", label: "Submissions", icon: Send },
   { id: "summary", label: "Summary", icon: FileText },
   { id: "team", label: "Team", icon: Users, countKey: "team" },
-  { id: "ai", label: "AI Recommendations", icon: Sparkles },
+  { id: "ai", label: "Match Candidates", icon: Sparkles },
   { id: "activities", label: "Activities", icon: Activity, countKey: "activities" },
   { id: "notes", label: "Notes", icon: StickyNote, countKey: "notes" },
   { id: "attachments", label: "Attachments", icon: Paperclip, countKey: "attachments" },
@@ -202,7 +203,7 @@ export default function JobDetailPageContent() {
           )}
 
           {tab === "ai" && (
-            <PlaceholderTab title="AI Recommendations" description="AI-powered candidate matching will appear here based on job requirements." />
+            <JobCandidateMatchesTab jobId={jobId} onShortlisted={refreshAll} />
           )}
 
           {tab === "activities" && job && (

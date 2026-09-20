@@ -36,4 +36,3 @@ class User(Base, TimestampMixin):
     created_candidates = relationship("Candidate", back_populates="created_by_user")
     activity_logs = relationship("ActivityLog", back_populates="created_by_user")
     notes = relationship("Note", back_populates="created_by_user")
-    email_accounts = relationship("UserEmailAccount", back_populates="user")

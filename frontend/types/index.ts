@@ -198,9 +198,14 @@ export interface Job {
   job_type: JobType;
   salary_min?: number;
   salary_max?: number;
+  must_have_skills?: string[];
+  nice_to_have_skills?: string[];
+  min_experience_years?: number | null;
+  max_experience_years?: number | null;
   required_skills?: string;
   experience_required?: string;
   description?: string;
+  screening_questions?: string[];
   number_of_positions: number;
   status: JobStatus;
   assigned_recruiter_id?: number;
@@ -367,19 +372,6 @@ export interface CandidateFolder {
 }
 
 export type CandidateStatus = "new" | "reviewed" | "shortlisted" | "interviewing" | "hired" | "rejected";
-
-export interface OutreachEnrollmentSummary {
-  id: number;
-  sequence_id: number;
-  sequence_name: string;
-  sequence_status: string;
-  enrollment_status: string;
-  current_step: number;
-  total_steps: number;
-  current_step_name?: string | null;
-  next_send_at?: string | null;
-  progress_percent: number;
-}
 
 export interface Candidate {
   id: number;
@@ -713,8 +705,66 @@ export interface MatchItem {
   job_title: string;
   client_name?: string;
   match_score: number;
+  verdict?: string;
   matched_skills: string[];
+  missing_skills?: string[];
 }
+
+export interface MatchCalibrationDimension {
+  key: string;
+  label: string;
+  score: number;
+  max_score: number;
+  matched: string[];
+  missing: string[];
+  note: string;
+}
+
+export interface MatchCalibration {
+  overall_score: number;
+  verdict: string;
+  matched_skills: string[];
+  missing_skills: string[];
+  flags: string[];
+  dimensions: MatchCalibrationDimension[];
+}
+
+export interface JobMatchItem {
+  job_id: number;
+  job_title: string;
+  client_id: number;
+  client_name?: string | null;
+  location?: string | null;
+  job_type?: string;
+  min_experience_years?: number | null;
+  max_experience_years?: number | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  screening_questions: string[];
+  match_score: number;
+  verdict: string;
+  matched_skills: string[];
+  missing_skills: string[];
+  flags: string[];
+  calibration: MatchCalibration;
+}
+
+export interface CandidateMatchItem {
+  candidate_id: number;
+  candidate_name: string;
+  candidate_title?: string | null;
+  candidate_email?: string;
+  location?: string | null;
+  experience_years?: number | null;
+  skills: string[];
+  match_score: number;
+  verdict: string;
+  matched_skills: string[];
+  missing_skills: string[];
+  flags: string[];
+  calibration: MatchCalibration;
+}
+
 
 export interface PlacementItem {
   assignment_id?: number;
@@ -949,81 +999,4 @@ export interface InboxItem {
   created_by_name?: string;
   created_at?: string;
   updated_at?: string;
-}
-
-export type GmailConnectionStatus = "connected" | "not_connected" | "needs_reconnect";
-
-export interface GmailStatus {
-  connected: boolean;
-  status: GmailConnectionStatus;
-  email_address?: string | null;
-  last_connected_at?: string | null;
-  last_error?: string | null;
-  sent_today: number;
-  daily_limit: number;
-}
-
-export type OutreachSequenceStatus = "draft" | "active" | "paused" | "completed";
-
-export interface OutreachSequenceListItem {
-  id: number;
-  name: string;
-  description?: string | null;
-  status: OutreachSequenceStatus;
-  sender_email?: string | null;
-  created_by_user_id: number;
-  created_by_name?: string | null;
-  enrolled_count: number;
-  sent_count: number;
-  failed_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface OutreachSequenceStep {
-  id: number;
-  step_number: number;
-  step_name: string;
-  subject: string;
-  body: string;
-  delay_days: number;
-}
-
-export interface OutreachEnrollment {
-  id: number;
-  candidate_id: number;
-  candidate_name?: string | null;
-  candidate_email?: string | null;
-  current_title?: string | null;
-  company?: string | null;
-  status: string;
-  current_step: number;
-  next_send_at?: string | null;
-}
-
-export interface OutreachSequenceDetail extends OutreachSequenceListItem {
-  steps: OutreachSequenceStep[];
-  enrollments: OutreachEnrollment[];
-}
-
-export interface OutreachEmailLog {
-  id: number;
-  candidate_id: number;
-  sender_email: string;
-  recipient_email: string;
-  rendered_subject: string;
-  status: string;
-  error_message?: string | null;
-  sent_at?: string | null;
-  created_at: string;
-  step_id?: number | null;
-}
-
-export interface OutreachCandidateOption {
-  id: number;
-  name: string;
-  email: string;
-  current_job_title?: string;
-  current_company?: string;
-  location?: string;
 }

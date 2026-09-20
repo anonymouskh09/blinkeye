@@ -14,6 +14,10 @@ GITHUB_LOOSE_RE = re.compile(r"(?:https?://)?(?:www\.)?github\.com/([a-zA-Z0-9_-
 TWITTER_LOOSE_RE = re.compile(r"(?:https?://)?(?:www\.)?(?:twitter\.com|x\.com)/([a-zA-Z0-9_]+)/?", re.I)
 YEAR_RE = re.compile(r"\b((?:19|20)\d{2})\b")
 
+# Full resume text is kept for matching/search. Cap it so a malformed PDF
+# cannot bloat a row.
+RESUME_TEXT_LIMIT = 50_000
+
 COMMON_SKILLS = [
     "JavaScript", "TypeScript", "Python", "Java", "React", "React.js", "Node.js", "Next.js",
     "HTML5", "HTML", "CSS3", "CSS", "Tailwind CSS", "Tailwind", "SQL", "PostgreSQL", "MongoDB",
@@ -327,6 +331,7 @@ def parse_resume_text(text: str) -> dict:
             "social_links": social_links,
         },
         "raw_text_preview": full_text[:500],
+        "resume_text": full_text[:RESUME_TEXT_LIMIT],
     }
 
 

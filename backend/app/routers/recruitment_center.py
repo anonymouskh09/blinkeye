@@ -41,12 +41,14 @@ def list_matches(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.services.matching_service import score_pair
+
     jobs_query = db.query(Job).options(joinedload(Job.client)).filter(Job.status == JobStatus.ACTIVE)
     if current_user.role != UserRole.ADMIN:
         jobs_query = jobs_query.filter(Job.assigned_recruiter_id == current_user.id)
     jobs = jobs_query.all()
 
-    candidates = db.query(Candidate).all()
+    candidates = db.query(Candidate).filter(Candidate.is_archived.is_(False)).all()
     assigned_pairs = {
         (a.candidate_id, a.job_id)
         for a in db.query(CandidateJobAssignment.candidate_id, CandidateJobAssignment.job_id).all()
@@ -54,15 +56,13 @@ def list_matches(
 
     matches = []
     for job in jobs:
-        job_skills = _parse_skills(job.required_skills)
-        if not job_skills:
+        if not (job.must_have_skills or job.required_skills):
             continue
         for candidate in candidates:
             if (candidate.id, job.id) in assigned_pairs:
                 continue
-            cand_skills = {s.lower().strip() for s in (candidate.skills or []) if s}
-            score = _skill_match_score(job_skills, cand_skills)
-            if score >= min_score:
+            result = score_pair(job, candidate)
+            if result.overall_score >= min_score:
                 matches.append({
                     "candidate_id": candidate.id,
                     "candidate_name": candidate.name,
@@ -70,8 +70,10 @@ def list_matches(
                     "job_id": job.id,
                     "job_title": job.title,
                     "client_name": job.client.company_name if job.client else None,
-                    "match_score": score,
-                    "matched_skills": sorted(job_skills & cand_skills),
+                    "match_score": result.overall_score,
+                    "verdict": result.verdict,
+                    "matched_skills": result.matched_skills,
+                    "missing_skills": result.missing_skills,
                 })
 
     matches.sort(key=lambda m: m["match_score"], reverse=True)

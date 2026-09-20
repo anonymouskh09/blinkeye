@@ -28,6 +28,7 @@ class Candidate(Base, TimestampMixin):
     source: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     imported_via: Mapped[str | None] = mapped_column(String(50), nullable=True)
     cv_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     profile_extras: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)

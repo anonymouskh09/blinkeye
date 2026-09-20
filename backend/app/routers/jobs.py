@@ -56,8 +56,13 @@ def _job_to_response(job: Job, db: Session) -> dict:
         salary_min=job.salary_min,
         salary_max=job.salary_max,
         required_skills=job.required_skills,
+        must_have_skills=job.must_have_skills,
+        nice_to_have_skills=job.nice_to_have_skills,
         experience_required=job.experience_required,
+        min_experience_years=job.min_experience_years,
+        max_experience_years=job.max_experience_years,
         description=job.description,
+        screening_questions=job.screening_questions,
         number_of_positions=job.number_of_positions,
         status=job.status,
         assigned_recruiter_id=job.assigned_recruiter_id,
@@ -165,6 +170,8 @@ def create_job(
     data = payload.model_dump(exclude={"client_id"})
     data["client_id"] = client_id
     data["engagement_id"] = engagement.id if engagement else None
+    if data.get("must_have_skills") and not data.get("required_skills"):
+        data["required_skills"] = ", ".join(data["must_have_skills"])
     if not data.get("assigned_recruiter_id") and current_user.role != UserRole.ADMIN:
         data["assigned_recruiter_id"] = current_user.id
     job = Job(**data)

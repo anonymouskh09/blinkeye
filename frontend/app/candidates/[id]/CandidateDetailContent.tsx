@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { formatDistanceToNow } from "date-fns";
 import {
-  FileText, Mail, Share2, Briefcase, Sparkles, Activity, StickyNote,
+  FileText, Share2, Briefcase, Sparkles, Activity, StickyNote,
   Paperclip, History, Plus, Send,
 } from "lucide-react";
 import PageWrapper from "@/components/layout/PageWrapper";
@@ -14,6 +14,7 @@ import EntityActivitiesTab from "@/components/activities/EntityActivitiesTab";
 import CandidateDetailHeader from "@/components/candidates/CandidateDetailHeader";
 import CandidateSummaryTab from "@/components/candidates/CandidateSummaryTab";
 import CandidateNotesTab from "@/components/candidates/CandidateNotesTab";
+import CandidateJobMatchesTab from "@/components/matching/CandidateJobMatchesTab";
 import SubmitCandidateModal from "@/components/submissions/SubmitCandidateModal";
 import SubmissionDetailModal from "@/components/submissions/SubmissionDetailModal";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
@@ -39,17 +40,11 @@ const CandidateSocialTab = dynamic(() => import("@/components/candidates/Candida
   loading: () => <CardSkeleton />,
 });
 
-const CandidateInboxTab = dynamic(() => import("@/components/candidates/CandidateInboxTab"), {
-  ssr: false,
-  loading: () => <CardSkeleton />,
-});
-
-type Tab = "summary" | "resume" | "inbox" | "social" | "jobs" | "recommendation" | "activities" | "notes" | "attachments" | "history";
+type Tab = "summary" | "resume" | "social" | "jobs" | "recommendation" | "activities" | "notes" | "attachments" | "history";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; countKey?: string }[] = [
   { id: "summary", label: "Summary", icon: FileText },
   { id: "resume", label: "Resume", icon: FileText, countKey: "resume" },
-  { id: "inbox", label: "Inbox", icon: Mail, countKey: "inbox" },
   { id: "social", label: "Social", icon: Share2, countKey: "social" },
   { id: "jobs", label: "Jobs", icon: Briefcase, countKey: "jobs" },
   { id: "recommendation", label: "Recommendation", icon: Sparkles },
@@ -83,7 +78,6 @@ export default function CandidateDetailContent() {
   const [resumeVersion, setResumeVersion] = useState(0);
   const [processStep, setProcessStep] = useState(0);
   const [processingResume, setProcessingResume] = useState(false);
-  const [inboxSteps, setInboxSteps] = useState(0);
 
   useEffect(() => {
     const t = searchParams.get("tab") as Tab | null;
@@ -148,13 +142,6 @@ export default function CandidateDetailContent() {
       .catch(() => setUsers([]));
   }, [assignOpen, users.length]);
 
-  useEffect(() => {
-    if (tab !== "inbox" && tab !== "summary") return;
-    api.get<ApiResponse<{ steps: { id: number }[] }>>(`/outreach/candidates/${id}/inbox`)
-      .then((r) => setInboxSteps(r.data.data.steps?.length || 0))
-      .catch(() => setInboxSteps(0));
-  }, [tab, id]);
-
   const switchTab = (t: Tab) => {
     setTab(t);
     router.replace(`/candidates/${id}?tab=${t}`, { scroll: false });
@@ -200,7 +187,6 @@ export default function CandidateDetailContent() {
     if (key === "jobs") return candidate.assignments?.length || 0;
     if (key === "notes") return notes.length;
     if (key === "activities") return scheduledActivities.length;
-    if (key === "inbox") return inboxSteps;
     return 0;
   };
 
@@ -389,13 +375,13 @@ export default function CandidateDetailContent() {
             <CandidateSocialTab candidate={candidate} onUpdate={fetchAll} />
           )}
 
-          {tab === "inbox" && (
-            <CandidateInboxTab candidate={candidate} candidateId={String(id)} />
+          {tab === "recommendation" && (
+            <CandidateJobMatchesTab candidateId={id} onAssigned={fetchAll} />
           )}
 
-          {(tab === "recommendation" || tab === "attachments") && (
+          {tab === "attachments" && (
             <div className="bg-white border border-gray-200 rounded-lg p-12 text-center max-w-lg mx-auto">
-              <h3 className="text-lg font-semibold text-gray-700 capitalize">{tab}</h3>
+              <h3 className="text-lg font-semibold text-gray-700 capitalize">attachments</h3>
               <p className="text-sm text-gray-500 mt-2">This section will be available soon.</p>
             </div>
           )}

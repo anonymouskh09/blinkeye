@@ -1,4 +1,5 @@
 from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,8 +23,13 @@ class Job(Base, TimestampMixin):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     required_skills: Mapped[str | None] = mapped_column(Text, nullable=True)
+    must_have_skills: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    nice_to_have_skills: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     experience_required: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    min_experience_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_experience_years: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    screening_questions: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     number_of_positions: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[JobStatus] = mapped_column(
         pg_enum(JobStatus, name="job_status"), nullable=False, default=JobStatus.ACTIVE, index=True

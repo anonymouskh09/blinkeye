@@ -5,6 +5,8 @@ import { Pencil, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { UserAvatar } from "@/components/clients/ClientAvatar";
 import { jobRef } from "@/components/jobs/JobDetailHeader";
+import SkillsInput from "@/components/ui/SkillsInput";
+import QuestionsInput from "@/components/ui/QuestionsInput";
 import api from "@/lib/api";
 import type { Job, User } from "@/types";
 import { BILLING_MODEL_LABELS, SERVICE_MODEL_LABELS } from "@/types";
@@ -88,6 +90,69 @@ interface Props {
 export default function JobSummaryTab({ job, users, onUpdate }: Props) {
   const [descEditing, setDescEditing] = useState(false);
   const [descDraft, setDescDraft] = useState(job.description || "");
+  const [reqEditing, setReqEditing] = useState(false);
+  const [mustHaveDraft, setMustHaveDraft] = useState<string[]>(job.must_have_skills || []);
+  const [niceToHaveDraft, setNiceToHaveDraft] = useState<string[]>(job.nice_to_have_skills || []);
+  const [questionsDraft, setQuestionsDraft] = useState<string[]>(job.screening_questions || []);
+  const [minExpDraft, setMinExpDraft] = useState(job.min_experience_years != null ? String(job.min_experience_years) : "");
+  const [maxExpDraft, setMaxExpDraft] = useState(job.max_experience_years != null ? String(job.max_experience_years) : "");
+  const [savingReq, setSavingReq] = useState(false);
+
+  const hasRequirements =
+    !!job.must_have_skills?.length ||
+    !!job.nice_to_have_skills?.length ||
+    !!job.screening_questions?.length ||
+    job.min_experience_years != null ||
+    job.max_experience_years != null;
+
+  const experienceLabel = (() => {
+    const min = job.min_experience_years;
+    const max = job.max_experience_years;
+    if (min != null && max != null) return `${min}–${max} years`;
+    if (min != null) return `${min}+ years`;
+    if (max != null) return `Up to ${max} years`;
+    return job.experience_required || "—";
+  })();
+
+  const startReqEdit = () => {
+    setMustHaveDraft(job.must_have_skills || []);
+    setNiceToHaveDraft(job.nice_to_have_skills || []);
+    setQuestionsDraft(job.screening_questions || []);
+    setMinExpDraft(job.min_experience_years != null ? String(job.min_experience_years) : "");
+    setMaxExpDraft(job.max_experience_years != null ? String(job.max_experience_years) : "");
+    setReqEditing(true);
+  };
+
+  const saveRequirements = async () => {
+    if (!mustHaveDraft.length) {
+      toast.error("Add at least one must-have skill");
+      return;
+    }
+    if (!questionsDraft.length) {
+      toast.error("Add at least one screening question");
+      return;
+    }
+    setSavingReq(true);
+    try {
+      await api.put(`/jobs/${job.id}`, {
+        must_have_skills: mustHaveDraft,
+        nice_to_have_skills: niceToHaveDraft,
+        screening_questions: questionsDraft,
+        min_experience_years: minExpDraft ? Number(minExpDraft) : null,
+        max_experience_years: maxExpDraft ? Number(maxExpDraft) : null,
+      });
+      toast.success("Requirements saved");
+      setReqEditing(false);
+      onUpdate();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        "Failed to save requirements";
+      toast.error(msg);
+    } finally {
+      setSavingReq(false);
+    }
+  };
 
   const save = async (key: string, value: string) => {
     const payload: Record<string, unknown> = { [key]: value || null };
@@ -100,6 +165,10 @@ export default function JobSummaryTab({ job, users, onUpdate }: Props) {
   };
 
   const saveDescription = async () => {
+    if (!(descDraft || "").trim()) {
+      toast.error("Description is required");
+      return;
+    }
     await api.put(`/jobs/${job.id}`, { description: descDraft });
     toast.success("Description saved");
     setDescEditing(false);
@@ -125,7 +194,7 @@ export default function JobSummaryTab({ job, users, onUpdate }: Props) {
               <div className="space-y-3">
                 <textarea value={descDraft} onChange={(e) => setDescDraft(e.target.value)} rows={8}
                   className="w-full text-sm border border-gray-200 rounded-md p-3 outline-none focus:ring-2 focus:ring-primary-500/30"
-                  placeholder="Write job description (min 250 characters for AI requirements extraction)..." />
+                  placeholder="Write a clear job description — required for matching." />
                 <div className="flex gap-2">
                   <button type="button" onClick={saveDescription} className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-700">Save</button>
                   <button type="button" onClick={() => setDescEditing(false)} className="px-3 py-1.5 border border-gray-200 text-sm rounded-md">Cancel</button>
@@ -140,22 +209,104 @@ export default function JobSummaryTab({ job, users, onUpdate }: Props) {
         </div>
 
         <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-          <div className="bg-[#eef2f6] px-4 py-2.5 border-b border-gray-200">
+          <div className="flex items-center justify-between bg-[#eef2f6] px-4 py-2.5 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-700">Job Requirements</h3>
+            {!reqEditing && (
+              <button type="button" onClick={startReqEdit} className="text-sm text-primary hover:underline">
+                {hasRequirements ? "Edit" : "+ Add"}
+              </button>
+            )}
           </div>
-          <div className="p-6 text-center">
-            {job.required_skills || job.experience_required ? (
-              <dl className="text-left text-sm space-y-2">
-                {job.experience_required && <div><dt className="text-gray-500">Experience</dt><dd>{job.experience_required}</dd></div>}
-                {job.required_skills && <div><dt className="text-gray-500">Skills</dt><dd>{job.required_skills}</dd></div>}
-              </dl>
+          <div className="p-4">
+            {reqEditing ? (
+              <div className="space-y-4">
+                <SkillsInput
+                  label="Must-Have Skills"
+                  value={mustHaveDraft}
+                  onChange={setMustHaveDraft}
+                  placeholder="e.g. React — press Enter after each skill"
+                  helperText="Candidates are matched against these first."
+                />
+                <SkillsInput
+                  label="Nice-to-Have Skills"
+                  value={niceToHaveDraft}
+                  onChange={setNiceToHaveDraft}
+                  placeholder="Optional — boosts a candidate's score"
+                />
+                <QuestionsInput
+                  label="Screening Questions"
+                  value={questionsDraft}
+                  onChange={setQuestionsDraft}
+                  placeholder="Type a question and click Add"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Min Experience (years)</label>
+                    <input type="number" min="0" value={minExpDraft} onChange={(e) => setMinExpDraft(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Max Experience (years)</label>
+                    <input type="number" min="0" value={maxExpDraft} onChange={(e) => setMaxExpDraft(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={saveRequirements} disabled={savingReq}
+                    className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-60">
+                    {savingReq ? "Saving…" : "Save"}
+                  </button>
+                  <button type="button" onClick={() => setReqEditing(false)}
+                    className="px-3 py-1.5 border border-gray-200 text-sm rounded-md">Cancel</button>
+                </div>
+              </div>
+            ) : hasRequirements ? (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1.5">Must-have skills</p>
+                  {job.must_have_skills?.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {job.must_have_skills.map((s) => (
+                        <span key={s} className="rounded-lg bg-primary-50 px-2 py-1 text-xs font-medium text-primary">{s}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-xs">None set</p>
+                  )}
+                </div>
+                {!!job.nice_to_have_skills?.length && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1.5">Nice-to-have skills</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {job.nice_to_have_skills.map((s) => (
+                        <span key={s} className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-700">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Experience</p>
+                  <p className="text-gray-800">{experienceLabel}</p>
+                </div>
+                {!!job.screening_questions?.length && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1.5">Screening questions</p>
+                    <ol className="list-decimal space-y-1 pl-4 text-xs text-gray-700">
+                      {job.screening_questions.map((q) => (
+                        <li key={q}>{q}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
             ) : (
-              <>
-                <p className="text-sm text-gray-500 mb-3">Job requirements are empty.</p>
-                <p className="text-xs text-gray-400 mb-4">Add a job description of at least 250 characters to automatically extract requirements, or manually input them.</p>
-                <button type="button" onClick={() => { setDescDraft(job.description || ""); setDescEditing(true); }}
-                  className="text-sm text-primary hover:underline">Add job description</button>
-              </>
+              <div className="py-6 text-center">
+                <p className="text-sm text-gray-500 mb-1">Job requirements are empty.</p>
+                <p className="text-xs text-gray-400 mb-4">Add must-have skills and an experience range so this job can be matched with candidates.</p>
+                <button type="button" onClick={startReqEdit} className="text-sm text-primary hover:underline">
+                  Add requirements
+                </button>
+              </div>
             )}
           </div>
         </div>

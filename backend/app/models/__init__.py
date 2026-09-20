@@ -16,13 +16,6 @@ from app.models.extension_auth import ExtensionAuthCode, ExtensionToken
 from app.models.interview import Interview
 from app.models.job import Job
 from app.models.note import Note
-from app.models.outreach import (
-    OutreachEmailLog,
-    OutreachEnrollment,
-    OutreachSequence,
-    OutreachSequenceStep,
-    UserEmailAccount,
-)
 from app.models.submission import ClientFeedback, Submission
 from app.models.offer import Offer
 from app.models.placement import Placement
@@ -58,11 +51,6 @@ __all__ = [
     "Interview",
     "ActivityLog",
     "Note",
-    "UserEmailAccount",
-    "OutreachSequence",
-    "OutreachSequenceStep",
-    "OutreachEnrollment",
-    "OutreachEmailLog",
     "Submission",
     "ClientFeedback",
     "Offer",

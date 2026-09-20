@@ -23,11 +23,6 @@ from app.models import (  # noqa: F401
     Job,
     JobActivity,
     Note,
-    OutreachEmailLog,
-    OutreachEnrollment,
-    OutreachSequence,
-    OutreachSequenceStep,
-    UserEmailAccount,
     User,
 )
 

@@ -41,7 +41,7 @@ export default function MatchesPage() {
     <PageWrapper>
       <Header
         title="Matches"
-        subtitle="AI-suggested candidate and job matches based on skills"
+        subtitle="Rule-based candidate ↔ job matches from ATS skills, experience, location, and salary"
       />
 
       {loading ? <TableSkeleton rows={8} cols={5} /> : !items.length ? (

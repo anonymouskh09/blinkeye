@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Plus, Search, Star } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import ProfileSectionCard from "@/components/candidates/profile/ProfileSectionCard";
 import Modal from "@/components/ui/Modal";
-import Select from "@/components/ui/Select";
 import api from "@/lib/api";
 import { COMMON_TIMEZONES, SALARY_CURRENCIES, guessTimezoneFromLocation } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
-import type { ApiResponse, Candidate, CandidateStatus, Job, OutreachEnrollmentSummary } from "@/types";
+import type { Candidate, CandidateStatus, Job } from "@/types";
 
 const STATUSES: { id: CandidateStatus; label: string }[] = [
   { id: "new", label: "New" },
@@ -88,11 +86,6 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
   const extras = candidate.profile_extras || {};
   const [jobSearch, setJobSearch] = useState("");
   const [jobOpen, setJobOpen] = useState(false);
-  const [enrollOpen, setEnrollOpen] = useState(false);
-  const [sequences, setSequences] = useState<{ id: number; name: string; status: string }[]>([]);
-  const [enrollments, setEnrollments] = useState<OutreachEnrollmentSummary[]>([]);
-  const [loadingEnrollments, setLoadingEnrollments] = useState(true);
-  const [selectedSequence, setSelectedSequence] = useState("");
   const [salaryMin, setSalaryMin] = useState(String(candidate.salary_min ?? ""));
   const [salaryMax, setSalaryMax] = useState(String(candidate.salary_max ?? ""));
   const [salaryCurrency, setSalaryCurrency] = useState(candidate.salary_currency || "USD");
@@ -106,22 +99,6 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
     setSalaryCurrency(candidate.salary_currency || "USD");
     setTimezone(candidate.timezone || guessTimezoneFromLocation(candidate.location) || "");
   }, [candidate]);
-
-  const fetchEnrollments = useCallback(async () => {
-    setLoadingEnrollments(true);
-    try {
-      const res = await api.get<ApiResponse<{ items: OutreachEnrollmentSummary[] }>>(
-        `/outreach/candidates/${candidate.id}/enrollments`,
-      );
-      setEnrollments(res.data.data.items);
-    } catch {
-      setEnrollments([]);
-    } finally {
-      setLoadingEnrollments(false);
-    }
-  }, [candidate.id]);
-
-  useEffect(() => { fetchEnrollments(); }, [fetchEnrollments]);
 
   const patch = async (payload: Record<string, unknown>) => {
     await api.patch(`/candidates/${candidate.id}/profile`, payload);
@@ -181,29 +158,6 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
       toast.error("Failed to save timezone");
     } finally {
       setSavingTz(false);
-    }
-  };
-
-  const openEnrollModal = async () => {
-    setEnrollOpen(true);
-    try {
-      const res = await api.get<ApiResponse<{ items: { id: number; name: string; status: string }[] }>>("/outreach/sequences");
-      setSequences(res.data.data.items.filter((s) => s.status === "active"));
-    } catch {
-      setSequences([]);
-    }
-  };
-
-  const enrollInSequence = async () => {
-    if (!selectedSequence) return;
-    try {
-      await api.post(`/outreach/sequences/${selectedSequence}/enrollments`, { candidate_id: candidate.id });
-      toast.success("Enrolled in sequence");
-      setEnrollOpen(false);
-      setSelectedSequence("");
-      fetchEnrollments();
-    } catch {
-      toast.error("Failed to enroll candidate");
     }
   };
 
@@ -358,7 +312,7 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
           )}
         </select>
         <p className="mt-2 text-xs leading-relaxed text-gray-400">
-          IANA timezone used for scheduling and outreach.
+          IANA timezone used for scheduling.
         </p>
         {!candidate.timezone && candidate.location && (
           <button
@@ -372,48 +326,6 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
             Auto-detect from location ({candidate.location})
           </button>
         )}
-      </ProfileSectionCard>
-
-      <ProfileSectionCard title="Sequences">
-        {loadingEnrollments ? (
-          <p className="text-sm text-gray-400">Loading sequences…</p>
-        ) : enrollments.length ? (
-          <div className="space-y-3">
-            {enrollments.map((en) => (
-              <div key={en.id} className="rounded-lg border border-gray-100 bg-gray-50/80 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-gray-900">{en.sequence_name}</p>
-                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-medium uppercase text-gray-500 border border-gray-200">
-                    {en.enrollment_status}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Step {en.current_step} of {en.total_steps}
-                  {en.current_step_name ? ` · ${en.current_step_name}` : ""}
-                </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${en.progress_percent}%` }} />
-                </div>
-                {en.next_send_at && (
-                  <p className="mt-1.5 text-[11px] text-gray-400">Next: {new Date(en.next_send_at).toLocaleString()}</p>
-                )}
-                <Link href={`/outreach/sequences/${en.sequence_id}`} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
-                  View sequence
-                </Link>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400">Not enrolled in any sequences.</p>
-        )}
-        <button
-          type="button"
-          onClick={openEnrollModal}
-          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-        >
-          <Plus className="h-4 w-4" />
-          Enroll in Sequence
-        </button>
       </ProfileSectionCard>
 
       <Modal open={jobOpen} onClose={() => setJobOpen(false)} title="Assign Job Opening">
@@ -449,24 +361,6 @@ export default function CandidateProfileSidebar({ candidate, jobs, onUpdate }: P
             </button>
           ))}
           {!filteredJobs.length && <p className="py-4 text-center text-sm text-gray-400">No active jobs found</p>}
-        </div>
-      </Modal>
-
-      <Modal open={enrollOpen} onClose={() => setEnrollOpen(false)} title="Enroll in Sequence">
-        <Select
-          label="Sequence"
-          placeholder="Select active sequence"
-          options={sequences.map((s) => ({ value: String(s.id), label: s.name }))}
-          value={selectedSequence}
-          onChange={(e) => setSelectedSequence(e.target.value)}
-        />
-        <div className="mt-4 flex gap-3">
-          <button type="button" onClick={enrollInSequence} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">
-            Enroll
-          </button>
-          <button type="button" onClick={() => setEnrollOpen(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
-            Cancel
-          </button>
         </div>
       </Modal>
     </aside>

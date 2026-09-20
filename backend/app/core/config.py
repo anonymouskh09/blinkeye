@@ -24,16 +24,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     COOKIE_NAME: str = "access_token"
 
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/gmail/callback"
-    GOOGLE_OAUTH_SCOPES: str = (
-        "https://www.googleapis.com/auth/gmail.send "
-        "https://www.googleapis.com/auth/userinfo.email"
-    )
-    TOKEN_ENCRYPTION_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
-    OUTREACH_DAILY_EMAIL_LIMIT: int = 30
 
     # Chrome extension auth flow
     EXTENSION_ACCESS_EXPIRE_MINUTES: int = 60

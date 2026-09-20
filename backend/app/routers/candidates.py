@@ -114,6 +114,7 @@ def _apply_parsed_data(candidate: Candidate, parsed: dict, overwrite_empty: bool
     set_if("current_company", "current_company")
     set_if("experience_years", "experience_years")
     set_if("linkedin_url", "linkedin_url")
+    set_if("resume_text", "resume_text")
 
     if parsed.get("skills") and (overwrite_empty or not candidate.skills):
         candidate.skills = parsed["skills"]

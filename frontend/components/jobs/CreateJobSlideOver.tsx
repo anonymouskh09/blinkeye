@@ -10,6 +10,8 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Select from "@/components/ui/Select";
+import SkillsInput from "@/components/ui/SkillsInput";
+import QuestionsInput from "@/components/ui/QuestionsInput";
 import api from "@/lib/api";
 import type { ApiResponse, Client, Engagement, PaginatedData, User } from "@/types";
 import { BILLING_MODEL_LABELS, SERVICE_MODEL_LABELS } from "@/types";
@@ -22,13 +24,22 @@ const schema = z.object({
   job_type: z.enum(["full-time", "part-time", "contract"]),
   salary_min: z.string().optional(),
   salary_max: z.string().optional(),
-  required_skills: z.string().optional(),
-  experience_required: z.string().optional(),
-  description: z.string().optional(),
+  must_have_skills: z.array(z.string()).min(1, "Add at least one must-have skill"),
+  nice_to_have_skills: z.array(z.string()),
+  screening_questions: z.array(z.string()).min(1, "Add at least one screening question"),
+  min_experience_years: z.string().optional(),
+  max_experience_years: z.string().optional(),
+  description: z.string().min(1, "Description is required"),
   number_of_positions: z.string().min(1, "Required"),
   assigned_recruiter_id: z.string().optional(),
   status: z.enum(["active", "pending", "on-hold", "closed", "filled"]),
-});
+}).refine(
+  (d) =>
+    !d.min_experience_years ||
+    !d.max_experience_years ||
+    Number(d.min_experience_years) <= Number(d.max_experience_years),
+  { message: "Min cannot be greater than max", path: ["max_experience_years"] },
+);
 
 type FormData = z.infer<typeof schema>;
 
@@ -73,8 +84,11 @@ export default function CreateJobSlideOver({
       location: "",
       salary_min: "",
       salary_max: "",
-      required_skills: "",
-      experience_required: "",
+      must_have_skills: [],
+      nice_to_have_skills: [],
+      screening_questions: [],
+      min_experience_years: "",
+      max_experience_years: "",
       description: "",
       assigned_recruiter_id: "",
     },
@@ -82,6 +96,9 @@ export default function CreateJobSlideOver({
 
   const selectedClientId = watch("client_id");
   const selectedEngagementId = watch("engagement_id");
+  const mustHaveSkills = watch("must_have_skills");
+  const niceToHaveSkills = watch("nice_to_have_skills");
+  const screeningQuestions = watch("screening_questions");
 
   useEffect(() => {
     if (!open) return;
@@ -95,8 +112,11 @@ export default function CreateJobSlideOver({
       location: "",
       salary_min: "",
       salary_max: "",
-      required_skills: "",
-      experience_required: "",
+      must_have_skills: [],
+      nice_to_have_skills: [],
+      screening_questions: [],
+      min_experience_years: "",
+      max_experience_years: "",
       description: "",
       assigned_recruiter_id: prefillRecruiterId,
     });
@@ -155,6 +175,8 @@ export default function CreateJobSlideOver({
         engagement_id: data.engagement_id ? Number(data.engagement_id) : null,
         salary_min: data.salary_min ? Number(data.salary_min) : null,
         salary_max: data.salary_max ? Number(data.salary_max) : null,
+        min_experience_years: data.min_experience_years ? Number(data.min_experience_years) : null,
+        max_experience_years: data.max_experience_years ? Number(data.max_experience_years) : null,
         number_of_positions: Number(data.number_of_positions),
         assigned_recruiter_id: data.assigned_recruiter_id
           ? Number(data.assigned_recruiter_id)
@@ -256,7 +278,19 @@ export default function CreateJobSlideOver({
           />
           <Input label="Salary Min" type="number" {...register("salary_min")} />
           <Input label="Salary Max" type="number" {...register("salary_max")} />
-          <Input label="Experience Required" {...register("experience_required")} />
+          <Input
+            label="Min Experience (years)"
+            type="number"
+            min="0"
+            {...register("min_experience_years")}
+          />
+          <Input
+            label="Max Experience (years)"
+            type="number"
+            min="0"
+            error={errors.max_experience_years?.message}
+            {...register("max_experience_years")}
+          />
           <Input label="Number of Positions" type="number" {...register("number_of_positions")} />
           <Select
             label="Assign Recruiter"
@@ -266,8 +300,34 @@ export default function CreateJobSlideOver({
           />
         </div>
 
-        <Textarea label="Required Skills" {...register("required_skills")} />
-        <Textarea label="Description" {...register("description")} />
+        <SkillsInput
+          label="Must-Have Skills *"
+          value={mustHaveSkills}
+          onChange={(v) => setValue("must_have_skills", v, { shouldValidate: true })}
+          placeholder="e.g. React — press Enter after each skill"
+          helperText="Candidates are matched against these first."
+          error={errors.must_have_skills?.message}
+        />
+        <SkillsInput
+          label="Nice-to-Have Skills"
+          value={niceToHaveSkills}
+          onChange={(v) => setValue("nice_to_have_skills", v, { shouldValidate: true })}
+          placeholder="Optional — boosts a candidate's score"
+        />
+        <QuestionsInput
+          label="Screening Questions *"
+          value={screeningQuestions}
+          onChange={(v) => setValue("screening_questions", v, { shouldValidate: true })}
+          placeholder="Type a question and click Add"
+          helperText="Required — used when calibrating candidates for this role."
+          error={errors.screening_questions?.message}
+        />
+        <Textarea
+          label="Description *"
+          rows={5}
+          error={errors.description?.message}
+          {...register("description")}
+        />
       </form>
     </SlideOver>
   );

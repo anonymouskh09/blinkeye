@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSidebar } from "@/lib/sidebar-context";
 import {
   Home, Building2, Briefcase, UserCheck, LogOut,
-  Users, CalendarDays, BarChart3, GitBranch, BadgeCheck, Contact, MessagesSquare, Send,
+  Users, CalendarDays, BarChart3, GitBranch, BadgeCheck, Contact, MessagesSquare,
   ChevronLeft, ChevronRight, FileText, DollarSign, Clock,
 } from "lucide-react";
 
@@ -31,8 +31,7 @@ const recruitmentCenter = [
   { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/contacts", label: "Guests", icon: Contact, adminOnly: true },
   { href: "/activities", label: "Activities", icon: CalendarDays },
-  { href: "/inbox", label: "Inbox", icon: MessagesSquare },
-  { href: "/outreach", label: "Outreach", icon: Send },
+  { href: "/inbox", label: "Notes Feed", icon: MessagesSquare },
 ];
 
 const adminExtra = [

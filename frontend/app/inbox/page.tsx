@@ -41,11 +41,11 @@ export default function InboxPage() {
 
   return (
     <PageWrapper>
-      <Header title="Inbox" subtitle="Notes and messages across candidates, jobs, and clients" />
+      <Header title="Notes Feed" subtitle="Notes added across candidates, jobs, and clients" />
 
       {loading ? <TableSkeleton rows={6} cols={1} /> : !items.length ? (
         <EmptyState
-          title="Inbox is empty"
+          title="No notes yet"
           description="Notes you add to candidates, jobs, or clients will appear here."
           icon={<MessagesSquare className="w-8 h-8" />}
         />
