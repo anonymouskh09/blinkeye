@@ -19,6 +19,7 @@ interface Props {
 export default function CandidateJobMatchesTab({ candidateId, onAssigned }: Props) {
   const [items, setItems] = useState<JobMatchItem[]>([]);
   const [scanned, setScanned] = useState(0);
+  const [matched, setMatched] = useState(0);
   const [loading, setLoading] = useState(true);
   const [minScore, setMinScore] = useState(30);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -34,6 +35,7 @@ export default function CandidateJobMatchesTab({ candidateId, onAssigned }: Prop
       });
       setItems(res.data.data.items || []);
       setScanned(res.data.data.scanned || 0);
+      setMatched(res.data.data.matched || 0);
     } catch {
       toast.error("Failed to load job matches");
     } finally {
@@ -69,7 +71,8 @@ export default function CandidateJobMatchesTab({ candidateId, onAssigned }: Prop
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">
           Scanned <span className="font-semibold text-gray-900">{scanned}</span> active jobs ·{" "}
-          <span className="font-semibold text-gray-900">{items.length}</span> matches ≥ {minScore}%
+          <span className="font-semibold text-gray-900">{matched.toLocaleString()}</span> matches ≥ {minScore}%
+          {matched > items.length && <> · showing top {items.length}</>}
         </p>
         <div className="flex items-center gap-2 text-sm">
           <label className="text-gray-500">Min score</label>

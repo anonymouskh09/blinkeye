@@ -13,7 +13,7 @@ from app.models.client import Client
 from app.models.client_activity import ClientActivity
 from app.models.client_contact import ClientContact
 from app.models.client_guest import ClientGuest
-from app.models.enums import EntityType, JobStatus, PipelineStage, UserRole
+from app.models.enums import EntityType, PipelineStage, UserRole
 from app.models.job import Job
 from app.models.note import Note
 from app.models.user import User

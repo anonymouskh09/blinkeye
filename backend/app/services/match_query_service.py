@@ -40,7 +40,8 @@ class MatchFilters:
     min_score: int = 30
     max_score: int = 100
     search: str | None = None
-    location: str | None = None
+    candidate_location: str | None = None
+    job_location: str | None = None
     job_type: str | None = None
     must_have_only: bool = False
     new_only: bool = False
@@ -113,8 +114,10 @@ def base_query(db: Session, user: User, f: MatchFilters) -> Query:
             .where(or_(Job.title.ilike(term), Client.company_name.ilike(term)))
         )
         q = q.filter(or_(MatchScore.candidate_id.in_(cand_ids), MatchScore.job_id.in_(job_ids)))
-    if f.location:
-        q = q.filter(or_(Candidate.location.ilike(f"%{f.location}%"), Job.location.ilike(f"%{f.location}%")))
+    if f.candidate_location:
+        q = q.filter(Candidate.location.ilike(f"%{f.candidate_location}%"))
+    if f.job_location:
+        q = q.filter(Job.location.ilike(f"%{f.job_location}%"))
     if f.job_type:
         q = q.filter(Job.job_type == f.job_type)
     if f.must_have_only:
@@ -325,3 +328,89 @@ def by_job(db: Session, user: User, f: MatchFilters, page: int, page_size: int, 
         })
     return {"items": jobs, "total": total, "page": page, "page_size": page_size,
             "total_pages": max(1, (total + page_size - 1) // page_size)}
+
+
+# -- Job detail "Matches" tab and candidate detail "Jobs" tab ---------------
+
+def _calibration(m: dict) -> dict:
+    return {k: m[k] for k in ("matched_skills", "missing_skills", "flags", "dimensions")} | {
+        "overall_score": m["match_score"],
+        "verdict": m["verdict"],
+    }
+
+
+def candidates_for_job(
+    db: Session, user: User, job: Job, *, min_score: int, limit: int, location: str | None = None
+) -> dict:
+    q = base_query(db, user, MatchFilters(job_id=job.id, min_score=min_score, candidate_location=location))
+    total, rows = fetch_page(q, "score", "desc", 0, limit)
+    items = []
+    for r in rows:
+        m, cand = serialize(r), r[2]
+        items.append({
+            "candidate_id": m["candidate_id"],
+            "candidate_name": m["candidate_name"],
+            "candidate_title": m["candidate_title"],
+            "candidate_email": m["candidate_email"],
+            "location": m["candidate_location"],
+            "experience_years": m["candidate_experience_years"],
+            "skills": cand.skills or [],
+            "match_score": m["match_score"],
+            "verdict": m["verdict"],
+            "matched_skills": m["matched_skills"],
+            "missing_skills": m["missing_skills"],
+            "flags": m["flags"],
+            "calibration": _calibration(m),
+        })
+    scanned = db.query(func.count(Candidate.id)).filter(Candidate.is_archived.is_(False)).scalar() or 0
+    return {
+        "job_id": job.id,
+        "job_title": job.title,
+        "screening_questions": job.screening_questions or [],
+        "scanned": scanned,
+        "matched": total,
+        "items": items,
+    }
+
+
+def jobs_for_candidate(
+    db: Session,
+    user: User,
+    candidate: Candidate,
+    *,
+    min_score: int,
+    limit: int,
+    location: str | None = None,
+    job_type: str | None = None,
+    client_id: int | None = None,
+) -> dict:
+    f = MatchFilters(
+        candidate_id=candidate.id, min_score=min_score, job_location=location, job_type=job_type, client_id=client_id,
+    )
+    total, rows = fetch_page(base_query(db, user, f), "score", "desc", 0, limit)
+    items = []
+    for r in rows:
+        m, job = serialize(r), r[1]
+        items.append({
+            "job_id": job.id,
+            "job_title": job.title,
+            "client_id": m["client_id"],
+            "client_name": m["client_name"],
+            "location": job.location,
+            "job_type": m["job_type"],
+            "min_experience_years": job.min_experience_years,
+            "max_experience_years": job.max_experience_years,
+            "salary_min": job.salary_min,
+            "salary_max": job.salary_max,
+            "screening_questions": job.screening_questions or [],
+            "match_score": m["match_score"],
+            "verdict": m["verdict"],
+            "matched_skills": m["matched_skills"],
+            "missing_skills": m["missing_skills"],
+            "flags": m["flags"],
+            "calibration": _calibration(m),
+        })
+    scanned = apply_jobs_visibility_filter(
+        db.query(func.count(Job.id)).filter(Job.status == JobStatus.ACTIVE), db, user
+    ).scalar() or 0
+    return {"candidate_id": candidate.id, "scanned": scanned, "matched": total, "items": items}

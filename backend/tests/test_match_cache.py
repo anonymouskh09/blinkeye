@@ -1,6 +1,5 @@
 from app.models.match import MatchScore
-from tests.match_helpers import (  # noqa: F401  (fixtures)
-    db_session,
+from tests.match_helpers import (
     make_candidate,
     make_client,
     make_job,

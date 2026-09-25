@@ -7,17 +7,10 @@ from app.core.deps import get_current_user
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.core.response import success_response
 from app.models.candidate import Candidate
-from app.models.candidate_job import CandidateJobAssignment
-from app.models.enums import ActivityAction, EntityType, PipelineStage
-from app.models.job import Job
 from app.models.user import User
-from app.services.activity_service import log_activity
-from app.services.matching_service import (
-    match_candidates_for_job,
-    match_jobs_for_candidate,
-    result_to_dict,
-    score_pair,
-)
+from app.services import match_action_service as actions
+from app.services import match_query_service as mq
+from app.services.matching_service import result_to_dict, score_pair
 from app.services.permission_service import get_job_or_404, require_job_access, require_view_candidates
 
 router = APIRouter(prefix="/matching", tags=["matching"])
@@ -41,8 +34,9 @@ def jobs_for_candidate(
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate or candidate.is_archived:
         raise NotFoundException("Candidate not found")
-    data = match_jobs_for_candidate(
+    data = mq.jobs_for_candidate(
         db,
+        current_user,
         candidate,
         min_score=min_score,
         limit=limit,
@@ -64,13 +58,7 @@ def candidates_for_job(
 ):
     job = get_job_or_404(db, job_id)
     require_job_access(current_user, job, db)
-    data = match_candidates_for_job(
-        db,
-        job,
-        min_score=min_score,
-        limit=limit,
-        location=location,
-    )
+    data = mq.candidates_for_job(db, current_user, job, min_score=min_score, limit=limit, location=location)
     return success_response(data=data, message="Candidate matches retrieved")
 
 
@@ -109,48 +97,11 @@ def shortlist_candidates(
 ):
     job = get_job_or_404(db, job_id)
     require_job_access(current_user, job, db)
-
-    added = []
-    skipped = []
-    for cid in body.candidate_ids:
-        candidate = db.query(Candidate).filter(Candidate.id == cid, Candidate.is_archived.is_(False)).first()
-        if not candidate:
-            skipped.append({"candidate_id": cid, "reason": "not_found"})
-            continue
-        existing = (
-            db.query(CandidateJobAssignment)
-            .filter(
-                CandidateJobAssignment.candidate_id == cid,
-                CandidateJobAssignment.job_id == job_id,
-            )
-            .first()
-        )
-        if existing:
-            skipped.append({"candidate_id": cid, "reason": "already_assigned"})
-            continue
-        assignment = CandidateJobAssignment(
-            candidate_id=cid,
-            job_id=job_id,
-            status=PipelineStage.APPLIED,
-            assigned_recruiter_id=job.assigned_recruiter_id or current_user.id,
-        )
-        db.add(assignment)
-        if not candidate.assigned_job_id:
-            candidate.assigned_job_id = job_id
-        log_activity(
-            db,
-            EntityType.CANDIDATE,
-            cid,
-            ActivityAction.UPDATED,
-            f"Matched & shortlisted to job '{job.title}'",
-            current_user.id,
-        )
-        added.append(cid)
-
+    result = actions.shortlist(db, current_user, [(job_id, cid) for cid in body.candidate_ids])
+    added = [a["candidate_id"] for a in result["added"]]
+    skipped = [{"candidate_id": s["candidate_id"], "reason": s["reason"]} for s in result["skipped"]]
     if not added and skipped:
         raise BadRequestException("No candidates were shortlisted")
-
-    db.commit()
     return success_response(
         data={"added": added, "skipped": skipped},
         message=f"Shortlisted {len(added)} candidate(s)",

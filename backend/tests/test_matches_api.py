@@ -2,9 +2,7 @@ from app.models.activity_log import ActivityLog
 from app.models.candidate_job import CandidateJobAssignment
 from app.models.enums import PipelineStage
 from app.models.match import MatchDismissal
-from tests.match_helpers import (  # noqa: F401  (fixtures)
-    client,
-    db_session,
+from tests.match_helpers import (
     login,
     make_candidate,
     make_client,
@@ -201,3 +199,28 @@ def test_export_status_filters_and_legacy_endpoint(client, db_session):
     assert client.post("/matches/recalculate").status_code == 200
     rec = make_user(db_session, role="recruiter")
     assert login(client, rec).post("/matches/recalculate").status_code == 403
+
+
+def test_detail_tabs_read_cache_and_respect_dismissals(client, db_session):
+    admin, _, _, py, _, secret, c = _world(db_session)
+    login(client, admin)
+    res = client.get(f"/matching/jobs/{py.id}/candidates", params={"min_score": 20}).json()["data"]
+    ids = [m["candidate_id"] for m in res["items"]]
+    assert c["ali"].id in ids and res["scanned"] == 3 and res["matched"] == len(ids)
+    first = res["items"][0]
+    assert first["calibration"]["overall_score"] == first["match_score"]
+
+    client.post("/matches/dismiss", json={"pairs": [{"job_id": py.id, "candidate_id": c["ali"].id}], "reason": "not_a_fit"})
+    ids = [m["candidate_id"] for m in client.get(f"/matching/jobs/{py.id}/candidates", params={"min_score": 20}).json()["data"]["items"]]
+    assert c["ali"].id not in ids
+
+    # Legacy per-job shortlist goes through the same audited action.
+    res = client.post(f"/matching/jobs/{py.id}/shortlist", json={"candidate_ids": [c["sara"].id]})
+    assert res.json()["data"]["added"] == [c["sara"].id]
+    assert client.post(f"/matching/jobs/{py.id}/shortlist", json={"candidate_ids": [c["sara"].id]}).status_code == 400
+
+    # Candidate tab hides jobs of clients the recruiter cannot see.
+    rec = make_user(db_session, role="recruiter")
+    jobs = login(client, rec).get(f"/matching/candidates/{c['ali'].id}/jobs", params={"min_score": 20}).json()["data"]
+    assert secret.id not in {j["job_id"] for j in jobs["items"]} and jobs["items"]
+    assert jobs["scanned"] == 2
