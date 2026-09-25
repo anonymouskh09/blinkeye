@@ -1,85 +1,44 @@
 "use client";
 
 import { LucideIcon } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import { cn } from "@/lib/utils";
 
-const ACCENT = "#2F7A64";
-const ACCENT_SOFT = "#F1F4F8";
+type Tone = "primary" | "emerald" | "amber" | "teal";
+
+const TONES: Record<Tone, { icon: string; bar: string }> = {
+  primary: { icon: "bg-primary-600 text-white shadow-primary/30", bar: "from-primary-600 to-primary-400" },
+  emerald: { icon: "bg-emerald-500 text-white shadow-emerald-500/30", bar: "from-emerald-500 to-emerald-300" },
+  amber: { icon: "bg-amber-500 text-white shadow-amber-500/30", bar: "from-amber-500 to-amber-300" },
+  teal: { icon: "bg-teal-600 text-white shadow-teal-600/30", bar: "from-teal-600 to-teal-400" },
+};
 
 interface MetricCardProps {
   title: string;
   value: number | string;
   icon: LucideIcon;
-  trend?: string;
-  trendPositive?: boolean;
-  sparkline?: number[];
+  caption?: string;
+  tone?: Tone;
 }
 
-function buildSparkData(seed: number, points = 8) {
-  const values = Array.from({ length: points }, (_, i) => {
-    const wave = Math.sin(i * 0.9 + seed) * 12;
-    const drift = i * 3;
-    return Math.max(8, 28 + wave + drift + ((seed * (i + 3)) % 7));
-  });
-  return values.map((v, i) => ({ i, v }));
-}
-
-export default function MetricCard({
-  title,
-  value,
-  icon: Icon,
-  trend = "↑ 0% vs last month",
-  trendPositive = true,
-  sparkline,
-}: MetricCardProps) {
-  const seed = typeof value === "number" ? value : String(value).length * 11;
-  const data = (sparkline ?? buildSparkData(seed).map((d) => d.v)).map((v, i) => ({ i, v }));
-  const displayValue =
-    typeof value === "number" ? value.toLocaleString() : value;
+export default function MetricCard({ title, value, icon: Icon, caption, tone = "primary" }: MetricCardProps) {
+  const t = TONES[tone];
+  const displayValue = typeof value === "number" ? value.toLocaleString() : value;
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+    <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
+      <span className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", t.bar)} />
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-slate-500">{title}</p>
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={{ backgroundColor: ACCENT_SOFT }}
-        >
-          <Icon className="h-4 w-4" style={{ color: ACCENT }} />
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">{title}</p>
+          <p className="mt-2 text-[32px] font-extrabold leading-none tracking-tight text-slate-900 tabular-nums">
+            {displayValue}
+          </p>
+        </div>
+        <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-md", t.icon)}>
+          <Icon className="h-5 w-5" strokeWidth={2.25} />
         </div>
       </div>
-
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{displayValue}</p>
-
-      <p
-        className="mt-1.5 text-xs font-medium"
-        style={{ color: trendPositive ? ACCENT : "#DC2626" }}
-      >
-        {trend}
-      </p>
-
-      <div className="mt-4 h-12 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`spark-${seed}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
-                <stop offset="100%" stopColor={ACCENT} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <Area
-              type="monotone"
-              dataKey="v"
-              stroke={ACCENT}
-              strokeWidth={2}
-              fill={`url(#spark-${seed})`}
-              dot={{ r: 2.5, fill: ACCENT, strokeWidth: 0 }}
-              activeDot={false}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {caption && <p className="mt-3 text-xs font-medium text-slate-500">{caption}</p>}
     </div>
   );
 }

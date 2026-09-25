@@ -18,15 +18,17 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-figtree), system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-weight: 400;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, .panel-title {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-weight: 500;
+h1, h2, h3, h4, .panel-title {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 @layer components {
@@ -39,12 +41,35 @@ h1, h2, h3, .panel-title {
   }
 
   .panel-header {
-    @apply flex items-center justify-between px-6 py-2.5 border-b border-slate-200 bg-[#F1F4F8] mb-[14px];
+    @apply flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white mb-[14px];
   }
 
   .panel-title {
-    @apply text-lg font-medium text-[#1F574A] tracking-tight;
-    font-family: var(--font-poppins), system-ui, sans-serif;
+    @apply text-xl font-extrabold text-[#1F574A] tracking-tight;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  /* Shared page heading used on admin pages */
+  .page-eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.14em] text-primary-500;
+  }
+
+  /* Data table primitives */
+  .data-table-head {
+    @apply bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-[0.06em] select-none;
+  }
+
+  .data-table-row {
+    @apply border-b border-slate-100 last:border-0 hover:bg-primary-50/70 transition-colors;
+  }
+
+  /* Soft status pill */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase ring-1 ring-inset whitespace-nowrap;
+  }
+
+  .status-dot {
+    @apply h-1.5 w-1.5 rounded-full;
   }
 
   .sub-tabs {
@@ -56,7 +81,7 @@ h1, h2, h3, .panel-title {
   }
 
   .sub-tab-active {
-    @apply border-primary text-primary;
+    @apply border-primary text-primary font-bold;
   }
 
   .sub-tab-inactive {

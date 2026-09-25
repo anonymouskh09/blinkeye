@@ -62,9 +62,9 @@ export function TableWrapper({ children, className }: { children: React.ReactNod
 
   return (
 
-    <div className={cn("overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-card", className)}>
+    <div className={cn("overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-card", className)}>
 
-      <table className="min-w-full divide-y divide-gray-100">{children}</table>
+      <table className="min-w-full">{children}</table>
 
     </div>
 
@@ -80,7 +80,7 @@ export function Th({ children, className }: { children?: React.ReactNode; classN
 
     <th className={cn(
 
-      "px-5 py-3.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider bg-gray-50/80",
+      "px-5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-[0.06em] bg-slate-50 border-b border-slate-200 whitespace-nowrap",
 
       className,
 
@@ -100,7 +100,7 @@ export function Td({ children, className }: { children?: React.ReactNode; classN
 
   return (
 
-    <td className={cn("px-5 py-4 text-sm text-gray-700", className)}>
+    <td className={cn("px-5 py-3.5 text-[13px] text-slate-700", className)}>
 
       {children}
 
@@ -116,7 +116,7 @@ export function Tr({ children, className }: { children: React.ReactNode; classNa
 
   return (
 
-    <tr className={cn("hover:bg-gray-50/80 transition-colors duration-150 border-b border-gray-50 last:border-0", className)}>
+    <tr className={cn("hover:bg-primary-50/70 transition-colors duration-150 border-b border-slate-100 last:border-0", className)}>
 
       {children}
 

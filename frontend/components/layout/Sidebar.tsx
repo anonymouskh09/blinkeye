@@ -61,9 +61,9 @@ export default function Sidebar() {
         key={href + label}
         href={href}
         className={cn(
-          "group relative flex items-center gap-2.5 mx-2 px-2.5 py-1.5 text-sm font-medium transition-all duration-200 rounded-lg",
+          "group relative flex items-center gap-2.5 mx-2 px-2.5 py-1.5 text-sm font-semibold transition-all duration-200 rounded-lg",
           active
-            ? "text-[#1F574A] font-semibold shadow-sm"
+            ? "text-[#1F574A] font-bold shadow-sm"
             : "text-slate-700 hover:text-slate-900 hover:bg-slate-100",
         )}
         style={active ? { backgroundColor: ACTIVE_BG } : undefined}
