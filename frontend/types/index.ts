@@ -1000,3 +1000,94 @@ export interface InboxItem {
   created_at?: string;
   updated_at?: string;
 }
+
+// ---- Matches page (cached match scores) ----
+
+export type MatchVerdict = "strong_fit" | "good_fit" | "partial_fit" | "weak_fit";
+
+export interface MatchDismissalInfo {
+  id: number;
+  reason: string;
+  note?: string | null;
+  dismissed_by_name?: string | null;
+  dismissed_at?: string | null;
+}
+
+export interface MatchListItem {
+  id: number;
+  candidate_id: number;
+  candidate_name: string;
+  candidate_title?: string | null;
+  candidate_company?: string | null;
+  candidate_location?: string | null;
+  candidate_experience_years?: number | null;
+  candidate_email?: string | null;
+  candidate_skills: string[];
+  job_id: number;
+  job_title: string;
+  job_location?: string | null;
+  job_type?: string | null;
+  client_id: number;
+  client_name: string;
+  recruiter_name?: string | null;
+  match_score: number;
+  verdict: MatchVerdict;
+  matched_skills: string[];
+  missing_skills: string[];
+  must_have_total: number;
+  must_have_matched: number;
+  dimensions: MatchCalibrationDimension[];
+  flags: string[];
+  first_matched_at?: string | null;
+  computed_at?: string | null;
+  is_new: boolean;
+  dismissal: MatchDismissalInfo | null;
+}
+
+export interface MatchJobGroup {
+  job_id: number;
+  job_title: string;
+  job_location?: string | null;
+  client_id: number;
+  client_name: string;
+  recruiter_name?: string | null;
+  number_of_positions: number;
+  match_count: number;
+  strong_count: number;
+  new_count: number;
+  top_score: number;
+  avg_score: number;
+  items: MatchListItem[];
+}
+
+export interface MatchSummary {
+  total: number;
+  strong_fit: number;
+  good_fit: number;
+  partial_fit: number;
+  jobs_with_matches: number;
+  candidates_matched: number;
+  avg_score: number;
+  shortlisted_this_week: number;
+}
+
+export interface MatchCacheStatus {
+  last_computed_at: string | null;
+  refreshing: boolean;
+  active_jobs: number;
+  jobs_with_skills: number;
+  store_floor: number;
+  dismiss_reasons: { value: string; label: string }[];
+  last_error?: string | null;
+}
+
+export interface MatchFilterOptions {
+  jobs: { id: number; title: string; client_id: number; match_count: number }[];
+  clients: { id: number; name: string }[];
+  recruiters?: { id: number; name: string }[];
+}
+
+export interface MatchPair {
+  job_id: number;
+  candidate_id: number;
+}

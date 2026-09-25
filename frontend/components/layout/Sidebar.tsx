@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn, getInitials } from "@/lib/utils";
@@ -8,7 +9,7 @@ import { useSidebar } from "@/lib/sidebar-context";
 import {
   Home, Building2, Briefcase, UserCheck, LogOut,
   Users, CalendarDays, BarChart3, GitBranch, BadgeCheck, Contact, MessagesSquare,
-  ChevronLeft, ChevronRight, FileText, DollarSign, Clock,
+  ChevronLeft, ChevronRight, FileText, DollarSign, Clock, X,
 } from "lucide-react";
 
 const ACCENT = "#1F574A";
@@ -44,7 +45,13 @@ const adminExtra = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout, isAdmin, canViewClients } = useAuth();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed: collapsedSetting, toggle, mobileOpen, setMobileOpen } = useSidebar();
+  // The mobile drawer always shows labels; "collapsed" only applies from md up.
+  const collapsed = collapsedSetting && !mobileOpen;
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
 
   const navItems = mainNav.filter((item) => {
     if ("needsClientView" in item && item.needsClientView && !canViewClients) return false;
@@ -95,10 +102,16 @@ export default function Sidebar() {
   };
 
   return (
+    <>
+    {mobileOpen && (
+      <div className="fixed inset-0 z-30 bg-slate-900/40 md:hidden animate-fade-in" onClick={() => setMobileOpen(false)} />
+    )}
     <aside
       className={cn(
-        "fixed left-0 top-0 bottom-0 flex flex-col border-r border-slate-300/70 transition-all duration-300 z-30",
-        collapsed ? "w-[72px]" : "w-48",
+        "fixed left-0 top-0 bottom-0 flex flex-col border-r border-slate-300/70 transition-all duration-300 z-40 md:z-30",
+        "w-64",
+        collapsed ? "md:w-[72px]" : "md:w-48",
+        mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0",
       )}
       style={{ backgroundColor: SIDEBAR_BG }}
     >
@@ -132,8 +145,15 @@ export default function Sidebar() {
           )}
         </Link>
         <button
+          onClick={() => setMobileOpen(false)}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0 md:hidden"
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <button
           onClick={toggle}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+          className="hidden md:block p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -214,5 +234,6 @@ export default function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }

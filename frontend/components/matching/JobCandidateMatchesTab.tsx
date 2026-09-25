@@ -19,6 +19,7 @@ interface Props {
 export default function JobCandidateMatchesTab({ jobId, onShortlisted }: Props) {
   const [items, setItems] = useState<CandidateMatchItem[]>([]);
   const [scanned, setScanned] = useState(0);
+  const [matched, setMatched] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [minScore, setMinScore] = useState(30);
@@ -41,6 +42,7 @@ export default function JobCandidateMatchesTab({ jobId, onShortlisted }: Props) 
       });
       setItems(res.data.data.items || []);
       setScanned(res.data.data.scanned || 0);
+      setMatched(res.data.data.matched || 0);
       setQuestions(res.data.data.screening_questions || []);
       setSelected([]);
     } catch {
@@ -87,7 +89,8 @@ export default function JobCandidateMatchesTab({ jobId, onShortlisted }: Props) 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">
           Scanned <span className="font-semibold text-gray-900">{scanned}</span> candidates ·{" "}
-          <span className="font-semibold text-gray-900">{items.length}</span> eligible ≥ {minScore}%
+          <span className="font-semibold text-gray-900">{matched.toLocaleString()}</span> eligible ≥ {minScore}%
+          {matched > items.length && <> · showing top {items.length}</>}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <select

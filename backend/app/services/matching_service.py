@@ -7,12 +7,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-
-from sqlalchemy.orm import Session, joinedload
+from functools import lru_cache
 
 from app.models.candidate import Candidate
-from app.models.candidate_job import CandidateJobAssignment
-from app.models.enums import JobStatus, PipelineStage
 from app.models.job import Job
 
 # Weights sum to 100
@@ -61,6 +58,7 @@ STOP_TITLE_WORDS = {
 }
 
 
+@lru_cache(maxsize=8192)
 def normalize_skill(raw: str) -> str:
     s = (raw or "").strip().lower()
     s = re.sub(r"[^\w+#.\s/-]", "", s)
@@ -72,11 +70,12 @@ def skill_set(values: list[str] | None) -> set[str]:
     return {normalize_skill(v) for v in (values or []) if (v or "").strip()}
 
 
-def title_tokens(text: str | None) -> set[str]:
+@lru_cache(maxsize=8192)
+def title_tokens(text: str | None) -> frozenset[str]:
     if not text:
-        return set()
+        return frozenset()
     parts = re.split(r"[\s,/|+\-]+", text.lower())
-    return {p for p in parts if len(p) > 1 and p not in STOP_TITLE_WORDS}
+    return frozenset(p for p in parts if len(p) > 1 and p not in STOP_TITLE_WORDS)
 
 
 def location_compatible(job_loc: str | None, cand_loc: str | None) -> tuple[bool, str]:
@@ -339,142 +338,4 @@ def result_to_dict(result: MatchResult) -> dict:
             }
             for d in result.dimensions
         ],
-    }
-
-
-def _assigned_pairs(db: Session) -> set[tuple[int, int]]:
-    rows = db.query(
-        CandidateJobAssignment.candidate_id,
-        CandidateJobAssignment.job_id,
-    ).all()
-    return {(r[0], r[1]) for r in rows}
-
-
-def _rejected_pairs(db: Session) -> set[tuple[int, int]]:
-    rows = (
-        db.query(CandidateJobAssignment.candidate_id, CandidateJobAssignment.job_id)
-        .filter(CandidateJobAssignment.status == PipelineStage.REJECTED)
-        .all()
-    )
-    return {(r[0], r[1]) for r in rows}
-
-
-def match_jobs_for_candidate(
-    db: Session,
-    candidate: Candidate,
-    *,
-    min_score: int = 30,
-    limit: int = 50,
-    location: str | None = None,
-    job_type: str | None = None,
-    client_id: int | None = None,
-    exclude_assigned: bool = True,
-) -> dict:
-    q = db.query(Job).options(joinedload(Job.client)).filter(Job.status == JobStatus.ACTIVE)
-    if client_id:
-        q = q.filter(Job.client_id == client_id)
-    if job_type:
-        q = q.filter(Job.job_type == job_type)
-    if location:
-        q = q.filter(Job.location.ilike(f"%{location}%"))
-
-    jobs = q.all()
-    assigned = _assigned_pairs(db) if exclude_assigned else set()
-    rejected = _rejected_pairs(db)
-
-    items = []
-    scanned = 0
-    for job in jobs:
-        scanned += 1
-        if exclude_assigned and (candidate.id, job.id) in assigned:
-            continue
-        if (candidate.id, job.id) in rejected:
-            continue
-        # Skip jobs with no matching signal at all
-        if not (job.must_have_skills or job.required_skills or job.description):
-            continue
-        result = score_pair(job, candidate)
-        if result.overall_score < min_score:
-            continue
-        items.append({
-            "job_id": job.id,
-            "job_title": job.title,
-            "client_id": job.client_id,
-            "client_name": job.client.company_name if job.client else None,
-            "location": job.location,
-            "job_type": job.job_type.value if hasattr(job.job_type, "value") else job.job_type,
-            "min_experience_years": job.min_experience_years,
-            "max_experience_years": job.max_experience_years,
-            "salary_min": job.salary_min,
-            "salary_max": job.salary_max,
-            "screening_questions": job.screening_questions or [],
-            "match_score": result.overall_score,
-            "verdict": result.verdict,
-            "matched_skills": result.matched_skills,
-            "missing_skills": result.missing_skills,
-            "flags": result.flags,
-            "calibration": result_to_dict(result),
-        })
-
-    items.sort(key=lambda m: m["match_score"], reverse=True)
-    return {
-        "candidate_id": candidate.id,
-        "scanned": scanned,
-        "matched": len(items),
-        "items": items[:limit],
-    }
-
-
-def match_candidates_for_job(
-    db: Session,
-    job: Job,
-    *,
-    min_score: int = 30,
-    limit: int = 50,
-    location: str | None = None,
-    exclude_assigned: bool = True,
-) -> dict:
-    q = db.query(Candidate).filter(Candidate.is_archived.is_(False))
-    if location:
-        q = q.filter(Candidate.location.ilike(f"%{location}%"))
-
-    candidates = q.all()
-    assigned = _assigned_pairs(db) if exclude_assigned else set()
-    rejected = _rejected_pairs(db)
-
-    items = []
-    scanned = 0
-    for candidate in candidates:
-        scanned += 1
-        if exclude_assigned and (candidate.id, job.id) in assigned:
-            continue
-        if (candidate.id, job.id) in rejected:
-            continue
-        result = score_pair(job, candidate)
-        if result.overall_score < min_score:
-            continue
-        items.append({
-            "candidate_id": candidate.id,
-            "candidate_name": candidate.name,
-            "candidate_title": candidate.current_job_title,
-            "candidate_email": candidate.email,
-            "location": candidate.location,
-            "experience_years": candidate.experience_years,
-            "skills": candidate.skills or [],
-            "match_score": result.overall_score,
-            "verdict": result.verdict,
-            "matched_skills": result.matched_skills,
-            "missing_skills": result.missing_skills,
-            "flags": result.flags,
-            "calibration": result_to_dict(result),
-        })
-
-    items.sort(key=lambda m: m["match_score"], reverse=True)
-    return {
-        "job_id": job.id,
-        "job_title": job.title,
-        "screening_questions": job.screening_questions or [],
-        "scanned": scanned,
-        "matched": len(items),
-        "items": items[:limit],
     }

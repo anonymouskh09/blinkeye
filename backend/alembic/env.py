@@ -22,6 +22,8 @@ from app.models import (  # noqa: F401
     Interview,
     Job,
     JobActivity,
+    MatchDismissal,
+    MatchScore,
     Note,
     User,
 )
