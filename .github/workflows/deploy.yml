@@ -1,0 +1,54 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to recruite.lancerstech.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 25m
+          script: |
+            set -euo pipefail
+            cd /var/www/recruite.lancerstech.com
+            # Pull latest so ci_remote_deploy.sh itself is up to date
+            git fetch origin main
+            # Keep .env across reset
+            cp backend/.env /tmp/recruite_backend.env.ci.bak 2>/dev/null || true
+            git reset --hard origin/main
+            cp /tmp/recruite_backend.env.ci.bak backend/.env 2>/dev/null || true
+            sed -i 's/\r$//' deploy/*.sh
+            chmod +x deploy/ci_remote_deploy.sh deploy/finish_remote.sh deploy/deploy_from_git.sh
+            bash deploy/ci_remote_deploy.sh
+
+      - name: Health check
+        run: |
+          set -e
+          for i in 1 2 3 4 5; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://recruite.lancerstech.com/api/health || true)
+            echo "Attempt $i: HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              curl -s https://recruite.lancerstech.com/api/health
+              echo
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed"
+          exit 1
