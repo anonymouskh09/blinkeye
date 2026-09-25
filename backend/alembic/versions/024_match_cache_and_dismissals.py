@@ -8,7 +8,6 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = "024_match_cache_and_dismissals"
 down_revision: Union[str, None] = "023_job_screening_questions"
@@ -35,10 +34,6 @@ def upgrade() -> None:
             sa.Column("verdict", sa.String(20), nullable=False),
             sa.Column("must_have_total", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("must_have_matched", sa.Integer(), nullable=False, server_default="0"),
-            sa.Column("matched_skills", postgresql.JSONB(), nullable=False, server_default="[]"),
-            sa.Column("missing_skills", postgresql.JSONB(), nullable=False, server_default="[]"),
-            sa.Column("dimensions", postgresql.JSONB(), nullable=False, server_default="[]"),
-            sa.Column("flags", postgresql.JSONB(), nullable=False, server_default="[]"),
             sa.Column("score_version", sa.Integer(), nullable=False),
             sa.Column("first_matched_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
             sa.Column("computed_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),

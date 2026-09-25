@@ -10,7 +10,6 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -103,8 +102,7 @@ def list_matches(
     current_user: User = Depends(require_match_access),
 ):
     q = mq.base_query(db, current_user, filters)
-    total = q.order_by(None).count()
-    rows = mq.apply_sort(q, sort, order).offset((page - 1) * page_size).limit(page_size).all()
+    total, rows = mq.fetch_page(q, sort, order, (page - 1) * page_size, page_size)
     meta = paginate(total, page, page_size)
     return success_response(
         data={"items": [mq.serialize(r) for r in rows], **meta.model_dump()},
@@ -144,7 +142,7 @@ def export_matches(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_match_access),
 ):
-    rows = mq.apply_sort(mq.base_query(db, current_user, filters), sort, order).limit(EXPORT_LIMIT).all()
+    _, rows = mq.fetch_page(mq.base_query(db, current_user, filters), sort, order, 0, EXPORT_LIMIT)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow([
@@ -244,33 +242,7 @@ def filter_options(
     current_user: User = Depends(require_match_access),
 ):
     """Jobs, clients and recruiters that currently have visible matches."""
-    base = mq.base_query(db, current_user, mq.MatchFilters(min_score=cache.STORE_FLOOR))
-    job_rows = (
-        base.with_entities(Job.id, Job.title, Job.client_id, func.count())
-        .order_by(None)
-        .group_by(Job.id, Job.title, Job.client_id)
-        .order_by(Job.title)
-        .all()
-    )
-    client_rows = (
-        base.with_entities(mq.Client.id, mq.Client.company_name)
-        .order_by(None)
-        .distinct()
-        .order_by(mq.Client.company_name)
-        .all()
-    )
-    data = {
-        "jobs": [{"id": j[0], "title": j[1], "client_id": j[2], "match_count": j[3]} for j in job_rows],
-        "clients": [{"id": c[0], "name": c[1]} for c in client_rows],
-    }
-    if is_admin(current_user):
-        rec_rows = (
-            base.with_entities(mq.Recruiter.id, mq.Recruiter.name)
-            .filter(mq.Recruiter.id.isnot(None))
-            .order_by(None)
-            .distinct()
-            .order_by(mq.Recruiter.name)
-            .all()
-        )
-        data["recruiters"] = [{"id": r[0], "name": r[1]} for r in rec_rows]
+    data = mq.filter_options(db, current_user)
+    if not is_admin(current_user):
+        data.pop("recruiters", None)
     return success_response(data=data, message="Filter options retrieved")

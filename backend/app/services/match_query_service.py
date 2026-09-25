@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, case, exists, func, or_
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Query, Session, aliased
 
 from app.models.candidate import Candidate
@@ -16,6 +16,7 @@ from app.models.job import Job
 from app.models.match import MatchDismissal, MatchScore
 from app.models.user import User
 from app.services.match_cache_service import STORE_FLOOR
+from app.services.matching_service import result_to_dict, score_pair
 from app.services.permission_service import (
     apply_hidden_candidates_filter,
     apply_jobs_visibility_filter,
@@ -100,15 +101,18 @@ def base_query(db: Session, user: User, f: MatchFilters) -> Query:
     if f.max_score < 100:
         q = q.filter(MatchScore.overall_score <= f.max_score)
     if f.search:
+        # Resolve the (small) sets of matching candidates and jobs first rather
+        # than running ILIKE against every joined match row.
         term = f"%{f.search.strip()}%"
-        q = q.filter(
-            or_(
-                Candidate.name.ilike(term),
-                Candidate.current_job_title.ilike(term),
-                Job.title.ilike(term),
-                Client.company_name.ilike(term),
-            )
+        cand_ids = select(Candidate.id).where(
+            or_(Candidate.name.ilike(term), Candidate.current_job_title.ilike(term))
         )
+        job_ids = (
+            select(Job.id)
+            .join(Client, Client.id == Job.client_id)
+            .where(or_(Job.title.ilike(term), Client.company_name.ilike(term)))
+        )
+        q = q.filter(or_(MatchScore.candidate_id.in_(cand_ids), MatchScore.job_id.in_(job_ids)))
     if f.location:
         q = q.filter(or_(Candidate.location.ilike(f"%{f.location}%"), Job.location.ilike(f"%{f.location}%")))
     if f.job_type:
@@ -120,6 +124,18 @@ def base_query(db: Session, user: User, f: MatchFilters) -> Query:
     return q
 
 
+def fetch_page(q: Query, sort: str, order: str, offset: int, limit: int) -> tuple[int, list]:
+    """Count and page on narrow columns, then load full rows for the page only.
+    Sorting wide candidate rows (resume text, JSON) across every match was the
+    dominant cost before this split."""
+    total = q.with_entities(func.count(MatchScore.id)).order_by(None).scalar() or 0
+    ids = [r[0] for r in apply_sort(q.with_entities(MatchScore.id), sort, order).offset(offset).limit(limit).all()]
+    if not ids:
+        return total, []
+    by_id = {r[0].id: r for r in q.filter(MatchScore.id.in_(ids)).order_by(None).all()}
+    return total, [by_id[i] for i in ids if i in by_id]
+
+
 def apply_sort(q: Query, sort: str, order: str) -> Query:
     col = SORTS.get(sort, MatchScore.overall_score)
     primary = col.asc() if order == "asc" else col.desc()
@@ -128,8 +144,13 @@ def apply_sort(q: Query, sort: str, order: str) -> Query:
 
 
 def serialize(row) -> dict:
+    """One match for the API. The cached row decides filtering and order; the
+    breakdown is rescored here from the live job and candidate, which is cheap
+    for a page of rows and always reflects the latest edits."""
     score, job, cand, client, recruiter_name, dismissal, dismisser_name = row
     now = datetime.now(timezone.utc)
+    fresh = result_to_dict(score_pair(job, cand))
+    must = next((d for d in fresh["dimensions"] if d["key"] == "must_have_skills"), None)
     return {
         "id": score.id,
         "candidate_id": cand.id,
@@ -147,14 +168,14 @@ def serialize(row) -> dict:
         "client_id": client.id,
         "client_name": client.company_name,
         "recruiter_name": recruiter_name,
-        "match_score": score.overall_score,
-        "verdict": score.verdict,
-        "matched_skills": score.matched_skills or [],
-        "missing_skills": score.missing_skills or [],
-        "must_have_total": score.must_have_total,
-        "must_have_matched": score.must_have_matched,
-        "dimensions": score.dimensions or [],
-        "flags": score.flags or [],
+        "match_score": fresh["overall_score"],
+        "verdict": fresh["verdict"],
+        "matched_skills": fresh["matched_skills"],
+        "missing_skills": fresh["missing_skills"],
+        "must_have_total": len(must["matched"]) + len(must["missing"]) if must else 0,
+        "must_have_matched": len(must["matched"]) if must else 0,
+        "dimensions": fresh["dimensions"],
+        "flags": fresh["flags"],
         "first_matched_at": score.first_matched_at.isoformat() if score.first_matched_at else None,
         "computed_at": score.computed_at.isoformat() if score.computed_at else None,
         "is_new": bool(score.first_matched_at and now - score.first_matched_at <= NEW_WINDOW),
@@ -200,6 +221,35 @@ def summary(db: Session, user: User, f: MatchFilters) -> dict:
     }
 
 
+def filter_options(db: Session, user: User) -> dict:
+    """Jobs, clients and recruiters that currently have visible matches, from a
+    single aggregate over the cache plus a lookup of at most a few hundred jobs."""
+    counts = dict(
+        base_query(db, user, MatchFilters(min_score=STORE_FLOOR))
+        .with_entities(MatchScore.job_id, func.count(MatchScore.id))
+        .order_by(None)
+        .group_by(MatchScore.job_id)
+        .all()
+    )
+    if not counts:
+        return {"jobs": [], "clients": [], "recruiters": []}
+    rows = (
+        db.query(Job.id, Job.title, Job.client_id, Client.company_name, Recruiter.id, Recruiter.name)
+        .join(Client, Client.id == Job.client_id)
+        .outerjoin(Recruiter, Recruiter.id == Job.assigned_recruiter_id)
+        .filter(Job.id.in_(list(counts)))
+        .order_by(Job.title, Job.id)
+        .all()
+    )
+    clients = {r[2]: r[3] for r in rows}
+    recruiters = {r[4]: r[5] for r in rows if r[4] is not None}
+    return {
+        "jobs": [{"id": r[0], "title": r[1], "client_id": r[2], "match_count": counts[r[0]]} for r in rows],
+        "clients": [{"id": k, "name": v} for k, v in sorted(clients.items(), key=lambda kv: kv[1].lower())],
+        "recruiters": [{"id": k, "name": v} for k, v in sorted(recruiters.items(), key=lambda kv: kv[1].lower())],
+    }
+
+
 def by_job(db: Session, user: User, f: MatchFilters, page: int, page_size: int, per_job: int) -> dict:
     base = base_query(db, user, f)
     groups = (
@@ -217,17 +267,18 @@ def by_job(db: Session, user: User, f: MatchFilters, page: int, page_size: int, 
         .group_by(MatchScore.job_id)
         .subquery()
     )
-    total = db.query(func.count()).select_from(groups).scalar() or 0
-    job_rows = (
+    # One aggregate pass; there is at most one group per active job, so the
+    # grouped rows are paged in Python instead of re-aggregating to count them.
+    all_groups = (
         db.query(groups, Job, Client, Recruiter.name.label("recruiter_name"))
         .join(Job, Job.id == groups.c.job_id)
         .join(Client, Client.id == Job.client_id)
         .outerjoin(Recruiter, Recruiter.id == Job.assigned_recruiter_id)
         .order_by(groups.c.strong_count.desc(), groups.c.top_score.desc(), groups.c.job_id.asc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
         .all()
     )
+    total = len(all_groups)
+    job_rows = all_groups[(page - 1) * page_size : page * page_size]
     job_ids = [r.job_id for r in job_rows]
 
     top: dict[int, list[dict]] = {jid: [] for jid in job_ids}
@@ -249,9 +300,10 @@ def by_job(db: Session, user: User, f: MatchFilters, page: int, page_size: int, 
         keep_ids = [
             r.score_id for r in db.query(ranked.c.score_id).filter(ranked.c.rank <= per_job).all()
         ]
-        rows = apply_sort(base.filter(MatchScore.id.in_(keep_ids)), "score", "desc").all()
-        for r in rows:
-            top[r[0].job_id].append(serialize(r))
+        if keep_ids:
+            rows = apply_sort(base.filter(MatchScore.id.in_(keep_ids)), "score", "desc").all()
+            for r in rows:
+                top[r[0].job_id].append(serialize(r))
 
     jobs = []
     for r in job_rows:

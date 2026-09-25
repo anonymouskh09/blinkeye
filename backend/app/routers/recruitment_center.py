@@ -48,7 +48,7 @@ def list_matches(
     require_match_access(current_user)
 
     q = mq.base_query(db, current_user, mq.MatchFilters(min_score=min_score))
-    rows = mq.apply_sort(q, "score", "desc").limit(limit).all()
+    _, rows = mq.fetch_page(q, "score", "desc", 0, limit)
     return success_response(data={"items": [mq.serialize(r) for r in rows]}, message="Matches retrieved")
 
 

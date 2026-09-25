@@ -1,8 +1,11 @@
 """Cached candidate↔job match scores and recruiter dismissals.
 
-`match_scores` is a denormalised cache of `matching_service.score_pair` so the
-Matches page never scores on read. Rows are refreshed in the background when a
-job or candidate changes (see `match_cache_service`) and rebuilt nightly.
+`match_scores` caches the outcome of `matching_service.score_pair` (score,
+verdict, must-have coverage) for every pair, so filtering, sorting and paging
+the Matches page never scores on read. Rows stay narrow on purpose: the
+breakdown is recomputed only for the handful of rows on screen. Rows are
+refreshed in the background when a job or candidate changes (see
+`match_cache_service`) and rebuilt nightly.
 
 `match_dismissals` is an audit trail: undoing a dismissal stamps `undone_*`
 instead of deleting the row, so there is at most one *active* dismissal per
@@ -11,7 +14,6 @@ pair but the full history is kept.
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -32,10 +34,6 @@ class MatchScore(Base):
     verdict: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     must_have_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     must_have_matched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    matched_skills: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    missing_skills: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    dimensions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    flags: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     score_version: Mapped[int] = mapped_column(Integer, nullable=False)
     # First time this pair crossed the storage floor; drives the "New" badge.
     first_matched_at: Mapped[datetime] = mapped_column(

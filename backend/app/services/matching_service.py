@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -61,6 +62,7 @@ STOP_TITLE_WORDS = {
 }
 
 
+@lru_cache(maxsize=8192)
 def normalize_skill(raw: str) -> str:
     s = (raw or "").strip().lower()
     s = re.sub(r"[^\w+#.\s/-]", "", s)
@@ -72,11 +74,12 @@ def skill_set(values: list[str] | None) -> set[str]:
     return {normalize_skill(v) for v in (values or []) if (v or "").strip()}
 
 
-def title_tokens(text: str | None) -> set[str]:
+@lru_cache(maxsize=8192)
+def title_tokens(text: str | None) -> frozenset[str]:
     if not text:
-        return set()
+        return frozenset()
     parts = re.split(r"[\s,/|+\-]+", text.lower())
-    return {p for p in parts if len(p) > 1 and p not in STOP_TITLE_WORDS}
+    return frozenset(p for p in parts if len(p) > 1 and p not in STOP_TITLE_WORDS)
 
 
 def location_compatible(job_loc: str | None, cand_loc: str | None) -> tuple[bool, str]:

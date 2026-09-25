@@ -25,7 +25,6 @@ def test_new_job_and_candidate_are_scored_after_commit(db_session):
     row = scores[(job.id, cand.id)]
     assert row.verdict in {"strong_fit", "good_fit"}
     assert row.must_have_total == 2 and row.must_have_matched == 2
-    assert {d["key"] for d in row.dimensions} >= {"must_have_skills", "experience", "salary"}
 
 
 def test_pairs_below_floor_are_not_stored(db_session):

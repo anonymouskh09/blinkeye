@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 SCORE_VERSION = 1
 # Pairs below this score are not stored; the UI slider starts here.
 STORE_FLOOR = 20
-_INSERT_CHUNK = 1000
+_INSERT_CHUNK = 5000
 _REBUILD_LOCK_KEY = 820_240_925  # arbitrary, unique to this job
 
 # Only the columns score_pair reads, so bulk scoring skips heavy text/JSON.
@@ -62,66 +62,45 @@ def job_is_scoreable(job: Job | None) -> bool:
     return bool(job_must_have(job) or skill_set(job.nice_to_have_skills))
 
 
-def _row(job_id: int, candidate_id: int, result: MatchResult, must_total: int, computed_at: datetime) -> dict:
+def _row(job_id: int, candidate_id: int, result: MatchResult, computed_at: datetime) -> dict:
     must_dim = next((d for d in result.dimensions if d.key == "must_have_skills"), None)
     return {
         "job_id": job_id,
         "candidate_id": candidate_id,
         "overall_score": result.overall_score,
         "verdict": result.verdict,
-        "must_have_total": must_total,
+        "must_have_total": len(must_dim.matched) + len(must_dim.missing) if must_dim else 0,
         "must_have_matched": len(must_dim.matched) if must_dim else 0,
-        "matched_skills": result.matched_skills,
-        "missing_skills": result.missing_skills,
-        "dimensions": [
-            {
-                "key": d.key,
-                "label": d.label,
-                "score": d.score,
-                "max_score": d.max_score,
-                "matched": d.matched,
-                "missing": d.missing,
-                "note": d.note,
-            }
-            for d in result.dimensions
-        ],
-        "flags": result.flags,
         "score_version": SCORE_VERSION,
         "computed_at": computed_at,
     }
 
 
-def _upsert(db: Session, rows: list[dict]) -> None:
-    for i in range(0, len(rows), _INSERT_CHUNK):
-        chunk = rows[i : i + _INSERT_CHUNK]
-        stmt = pg_insert(MatchScore).values(chunk)
-        excluded = stmt.excluded
-        stmt = stmt.on_conflict_do_update(
-            constraint="uq_match_score_pair",
-            # first_matched_at is deliberately kept from the original insert.
-            set_={
-                "overall_score": excluded.overall_score,
-                "verdict": excluded.verdict,
-                "must_have_total": excluded.must_have_total,
-                "must_have_matched": excluded.must_have_matched,
-                "matched_skills": excluded.matched_skills,
-                "missing_skills": excluded.missing_skills,
-                "dimensions": excluded.dimensions,
-                "flags": excluded.flags,
-                "score_version": excluded.score_version,
-                "computed_at": excluded.computed_at,
-            },
+_UPSERT = pg_insert(MatchScore)
+_UPSERT = _UPSERT.on_conflict_do_update(
+    constraint="uq_match_score_pair",
+    # first_matched_at is deliberately kept from the original insert.
+    set_={
+        col: getattr(_UPSERT.excluded, col)
+        for col in (
+            "overall_score", "verdict", "must_have_total", "must_have_matched", "score_version", "computed_at",
         )
-        db.execute(stmt)
+    },
+)
+
+
+def _upsert(db: Session, rows: list[dict]) -> None:
+    # executemany lets SQLAlchemy batch these into multi-row INSERTs.
+    for i in range(0, len(rows), _INSERT_CHUNK):
+        db.execute(_UPSERT, rows[i : i + _INSERT_CHUNK])
 
 
 def _score_job(job: Job, candidates: Iterable, computed_at: datetime) -> list[dict]:
-    must_total = len(job_must_have(job))
     rows = []
     for cand in candidates:
         result = score_pair(job, cand)
         if result.overall_score >= STORE_FLOOR:
-            rows.append(_row(job.id, cand.id, result, must_total, computed_at))
+            rows.append(_row(job.id, cand.id, result, computed_at))
     return rows
 
 
@@ -197,6 +176,11 @@ def rebuild_all(db: Session) -> int | None:
         # longer scoreable, or fell below the floor.
         db.execute(delete(MatchScore).where(MatchScore.computed_at != computed_at))
         db.commit()
+        if is_pg:
+            # A rebuild rewrites every row; fresh statistics keep the planner on
+            # hash joins instead of assuming the table is tiny.
+            db.execute(text("ANALYZE match_scores"))
+            db.commit()
         logger.info("Match rebuild stored %s rows for %s jobs", total, len(jobs))
         return total
     finally:
