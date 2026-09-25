@@ -35,7 +35,7 @@ def upgrade() -> None:
             sa.Column("must_have_total", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("must_have_matched", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("score_version", sa.Integer(), nullable=False),
-            sa.Column("first_matched_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column("first_matched_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("computed_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
             sa.UniqueConstraint("job_id", "candidate_id", name="uq_match_score_pair"),
         )

@@ -36,9 +36,8 @@ class MatchScore(Base):
     must_have_matched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     score_version: Mapped[int] = mapped_column(Integer, nullable=False)
     # First time this pair crossed the storage floor; drives the "New" badge.
-    first_matched_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    # NULL for pairs found by the very first backfill, which predate tracking.
+    first_matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )

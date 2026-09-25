@@ -62,7 +62,9 @@ def job_is_scoreable(job: Job | None) -> bool:
     return bool(job_must_have(job) or skill_set(job.nice_to_have_skills))
 
 
-def _row(job_id: int, candidate_id: int, result: MatchResult, computed_at: datetime) -> dict:
+def _row(
+    job_id: int, candidate_id: int, result: MatchResult, computed_at: datetime, first_matched_at: datetime | None
+) -> dict:
     must_dim = next((d for d in result.dimensions if d.key == "must_have_skills"), None)
     return {
         "job_id": job_id,
@@ -73,6 +75,8 @@ def _row(job_id: int, candidate_id: int, result: MatchResult, computed_at: datet
         "must_have_matched": len(must_dim.matched) if must_dim else 0,
         "score_version": SCORE_VERSION,
         "computed_at": computed_at,
+        # Only used on insert; the upsert never overwrites it.
+        "first_matched_at": first_matched_at,
     }
 
 
@@ -100,7 +104,7 @@ def _score_job(job: Job, candidates: Iterable, computed_at: datetime) -> list[di
     for cand in candidates:
         result = score_pair(job, cand)
         if result.overall_score >= STORE_FLOOR:
-            rows.append(_row(job.id, cand.id, result, computed_at))
+            rows.append(_row(job.id, cand.id, result, computed_at, first_matched_at=computed_at))
     return rows
 
 
@@ -164,11 +168,17 @@ def rebuild_all(db: Session) -> int | None:
         return None
     try:
         computed_at = datetime.now(timezone.utc)
+        # On the very first build every pair would otherwise look "new"; leave
+        # first_matched_at empty for those so the badge means something.
+        initial = db.execute(select(MatchScore.id).limit(1)).first() is None
         candidates = _active_candidates(db)
         jobs = _scoreable_jobs(db)
         total = 0
         for job in jobs:
             rows = _score_job(job, candidates, computed_at)
+            if initial:
+                for r in rows:
+                    r["first_matched_at"] = None
             _upsert(db, rows)
             total += len(rows)
             db.commit()

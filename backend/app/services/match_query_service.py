@@ -138,7 +138,7 @@ def fetch_page(q: Query, sort: str, order: str, offset: int, limit: int) -> tupl
 
 def apply_sort(q: Query, sort: str, order: str) -> Query:
     col = SORTS.get(sort, MatchScore.overall_score)
-    primary = col.asc() if order == "asc" else col.desc()
+    primary = (col.asc() if order == "asc" else col.desc()).nullslast()
     # Stable secondary keys so pagination never repeats or skips rows.
     return q.order_by(primary, MatchScore.overall_score.desc(), MatchScore.id.asc())
 

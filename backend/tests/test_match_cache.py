@@ -124,3 +124,25 @@ def test_permanent_job_delete_cascades(db_session):
     db_session.delete(job)
     db_session.commit()
     assert _scores(db_session) == {}
+
+
+def test_initial_backfill_is_not_flagged_new_but_later_matches_are(db_session, monkeypatch):
+    from app.core.config import settings
+    from app.services.match_cache_service import rebuild_all
+
+    monkeypatch.setattr(settings, "MATCH_REFRESH_MODE", "off")
+    admin = make_user(db_session)
+    job = make_job(db_session, make_client(db_session, admin))
+    old = make_candidate(db_session, admin)
+    rebuild_all(db_session)
+    assert _scores(db_session)[(job.id, old.id)].first_matched_at is None
+
+    monkeypatch.setattr(settings, "MATCH_REFRESH_MODE", "sync")
+    new = make_candidate(db_session, admin)
+    scores = _scores(db_session)
+    assert scores[(job.id, new.id)].first_matched_at is not None
+    # A later rebuild keeps both as they were.
+    rebuild_all(db_session)
+    scores = _scores(db_session)
+    assert scores[(job.id, old.id)].first_matched_at is None
+    assert scores[(job.id, new.id)].first_matched_at is not None

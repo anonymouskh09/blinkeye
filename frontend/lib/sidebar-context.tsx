@@ -6,18 +6,24 @@ interface SidebarContextType {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
   toggle: () => void;
+  /** Off-canvas drawer state below the md breakpoint. */
+  mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <SidebarContext.Provider
       value={{
         collapsed,
         setCollapsed,
         toggle: () => setCollapsed((c) => !c),
+        mobileOpen,
+        setMobileOpen,
       }}
     >
       {children}
