@@ -15,6 +15,7 @@ from app.models.engagement import Engagement
 from app.models.extension_auth import ExtensionAuthCode, ExtensionToken
 from app.models.interview import Interview
 from app.models.job import Job
+from app.models.match import MatchDismissal, MatchScore
 from app.models.note import Note
 from app.models.submission import ClientFeedback, Submission
 from app.models.offer import Offer
@@ -39,6 +40,8 @@ __all__ = [
     "ClientAttachment",
     "Engagement",
     "Job",
+    "MatchScore",
+    "MatchDismissal",
     "Candidate",
     "CandidateActivity",
     "ClientActivity",
