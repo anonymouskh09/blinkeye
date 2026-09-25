@@ -41,43 +41,15 @@ def list_matches(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from app.services.matching_service import score_pair
+    """Legacy flat list; now served from the match cache (see /matches)."""
+    from app.routers.matches import require_match_access
+    from app.services import match_query_service as mq
 
-    jobs_query = db.query(Job).options(joinedload(Job.client)).filter(Job.status == JobStatus.ACTIVE)
-    if current_user.role != UserRole.ADMIN:
-        jobs_query = jobs_query.filter(Job.assigned_recruiter_id == current_user.id)
-    jobs = jobs_query.all()
+    require_match_access(current_user)
 
-    candidates = db.query(Candidate).filter(Candidate.is_archived.is_(False)).all()
-    assigned_pairs = {
-        (a.candidate_id, a.job_id)
-        for a in db.query(CandidateJobAssignment.candidate_id, CandidateJobAssignment.job_id).all()
-    }
-
-    matches = []
-    for job in jobs:
-        if not (job.must_have_skills or job.required_skills):
-            continue
-        for candidate in candidates:
-            if (candidate.id, job.id) in assigned_pairs:
-                continue
-            result = score_pair(job, candidate)
-            if result.overall_score >= min_score:
-                matches.append({
-                    "candidate_id": candidate.id,
-                    "candidate_name": candidate.name,
-                    "candidate_title": candidate.current_job_title,
-                    "job_id": job.id,
-                    "job_title": job.title,
-                    "client_name": job.client.company_name if job.client else None,
-                    "match_score": result.overall_score,
-                    "verdict": result.verdict,
-                    "matched_skills": result.matched_skills,
-                    "missing_skills": result.missing_skills,
-                })
-
-    matches.sort(key=lambda m: m["match_score"], reverse=True)
-    return success_response(data={"items": matches[:limit]}, message="Matches retrieved")
+    q = mq.base_query(db, current_user, mq.MatchFilters(min_score=min_score))
+    rows = mq.apply_sort(q, "score", "desc").limit(limit).all()
+    return success_response(data={"items": [mq.serialize(r) for r in rows]}, message="Matches retrieved")
 
 
 @router.get("/placements")

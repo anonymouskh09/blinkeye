@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import AppException, app_exception_handler, generic_exception_handler, http_exception_handler
 from app.core.response import success_response
-from app.routers import auth, billing, candidates, clients, dashboard, engagements, extension, extension_management, folders, interviews, jobs, matching, notes, offers, pipeline, placements, recruitment_center, reports, submissions, timesheets, users
+from app.routers import auth, billing, candidates, clients, dashboard, engagements, extension, extension_management, folders, interviews, jobs, matches, matching, notes, offers, pipeline, placements, recruitment_center, reports, submissions, timesheets, users
 
 from app.core.database import Base, engine
 from app.core.seed import seed_admin
@@ -62,6 +62,7 @@ app.include_router(dashboard.router)
 app.include_router(reports.router)
 app.include_router(recruitment_center.router)
 app.include_router(matching.router)
+app.include_router(matches.router)
 app.include_router(extension.router)
 app.include_router(extension_management.router)
 
