@@ -11,6 +11,7 @@ from app.routers import auth, billing, candidates, clients, dashboard, engagemen
 
 from app.core.database import Base, engine
 from app.core.seed import seed_admin
+import app.services.match_refresh_worker  # noqa: F401  registers ORM hooks that keep match_scores fresh
 
 
 @asynccontextmanager
@@ -22,7 +23,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Seed info: {e}")
 
+    from app.services import match_scheduler
+    match_scheduler.start()
     yield
+    match_scheduler.shutdown()
 
 
 app = FastAPI(title="Recruitment Agency Management System", version="1.0.0", lifespan=lifespan)

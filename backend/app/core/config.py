@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # Dev-only: allow the extension to connect with a pasted JWT access token.
     EXTENSION_ALLOW_DEV_TOKEN: bool = False
 
+    # Match score cache (see app/services/match_refresh_worker.py)
+    # "async": background thread, "sync": inline after commit (tests), "off".
+    MATCH_REFRESH_MODE: str = "async"
+    # Nightly full rebuild + startup backfill.
+    MATCH_SCHEDULER_ENABLED: bool = True
+    MATCH_REBUILD_HOUR: int = 2
+
     @property
     def cors_origins_list(self) -> list[str]:
         origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
