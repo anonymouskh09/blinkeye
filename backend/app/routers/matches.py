@@ -28,6 +28,13 @@ from app.services.permission_service import apply_jobs_visibility_filter, has_pe
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 EXPORT_LIMIT = 10_000
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value) -> str:
+    """Neutralise spreadsheet formula injection from user-entered text."""
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(_FORMULA_PREFIXES) else text
 
 
 def require_match_access(current_user: User = Depends(get_current_user)) -> User:
@@ -154,7 +161,7 @@ def export_matches(
     for r in rows:
         m = mq.serialize(r)
         d = m["dismissal"] or {}
-        w.writerow([
+        w.writerow(_csv_safe(v) for v in [
             m["candidate_name"], m["candidate_title"] or "", m["candidate_location"] or "",
             m["candidate_experience_years"] if m["candidate_experience_years"] is not None else "",
             m["candidate_email"] or "", m["job_title"], m["client_name"], m["job_location"] or "",

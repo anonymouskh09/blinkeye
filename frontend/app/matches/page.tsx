@@ -446,6 +446,7 @@ function MatchesContent() {
             )}
             <a
               href={exportHref}
+              title="Download the matches for the current filters (up to 10,000 rows)"
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <Download className="h-4 w-4" /> Export CSV
@@ -585,7 +586,11 @@ function MatchesContent() {
         match={quickView}
         onClose={() => setQuickView(null)}
         onShortlist={(m) => shortlist([m])}
-        onDismiss={(m) => setDismissTarget([m])}
+        onDismiss={(m) => {
+          // The drawer stacks above modals; close it so the dismiss dialog is visible.
+          setQuickView(null);
+          setDismissTarget([m]);
+        }}
         busy={busy}
       />
     </>

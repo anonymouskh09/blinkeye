@@ -224,3 +224,15 @@ def test_detail_tabs_read_cache_and_respect_dismissals(client, db_session):
     jobs = login(client, rec).get(f"/matching/candidates/{c['ali'].id}/jobs", params={"min_score": 20}).json()["data"]
     assert secret.id not in {j["job_id"] for j in jobs["items"]} and jobs["items"]
     assert jobs["scanned"] == 2
+
+
+def test_export_neutralises_spreadsheet_formulas(client, db_session):
+    import csv
+    import io
+
+    admin, _, _, py, _, _, _ = _world(db_session)
+    make_candidate(db_session, admin, skills=("python", "django"), name='=HYPERLINK("http://evil","x")')
+    res = login(client, admin).get("/matches/export.csv", params={"job_id": py.id, "min_score": 20})
+    names = [row[0] for row in csv.reader(io.StringIO(res.text))][1:]
+    evil = next(n for n in names if "HYPERLINK" in n)
+    assert evil.startswith("'=")
