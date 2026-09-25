@@ -74,7 +74,7 @@ export default function JobsListTable({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-card">
       {!hideToolbar && (
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-b border-gray-100">
           <button type="button" onClick={onFiltersClick} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-primary text-primary text-sm rounded-md hover:bg-primary-50 transition-colors">
@@ -92,8 +92,8 @@ export default function JobsListTable({
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>
-            <tr className="bg-[#F1F4F8] border-b border-gray-200">
-              <th className="w-10 px-3 py-3 rounded-l-xl">
+            <tr className="data-table-head">
+              <th className="w-10 px-3 py-3">
                 <input
                   type="checkbox"
                   className="rounded border-gray-300"
@@ -104,30 +104,30 @@ export default function JobsListTable({
                   onChange={() => onToggleAll?.()}
                 />
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Position Name <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Position Name <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
               {showClient && (
-                <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1">Job Client <ArrowUpDown className="h-3 w-3" /></span>
+                <th className="px-3 py-3 text-left whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">Job Client <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
                 </th>
               )}
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Job Location <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Job Location <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Headcount</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Job Stage <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Headcount</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Job Stage <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Minimum Salary</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Maximum Salary</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Job Owner</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Job Team</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Job Status <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Minimum Salary</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Maximum Salary</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Job Owner</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Job Team</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Job Status <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap rounded-r-xl">
-                <span className="inline-flex items-center gap-1">Job Created Date <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Job Created Date <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
             </tr>
           </thead>
@@ -136,10 +136,10 @@ export default function JobsListTable({
               const recruiter = j.assigned_recruiter_name || "—";
               return (
                 <tr key={j.id} className={cn(
-                  "border-b border-gray-100 hover:bg-primary-50/40 transition-colors",
-                  idx % 2 === 1 ? "bg-primary-50/20" : "bg-white"
+                  "data-table-row",
+                  idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"
                 )}>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3.5">
                     <input
                       type="checkbox"
                       className="rounded border-gray-300"
@@ -147,9 +147,9 @@ export default function JobsListTable({
                       onChange={() => onToggle?.(j.id)}
                     />
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3.5 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <Link href={`/jobs/${j.id}`} className="text-primary hover:underline text-sm font-medium">{j.title}</Link>
+                      <Link href={`/jobs/${j.id}`} className="text-slate-900 hover:text-primary text-[13.5px] font-bold">{j.title}</Link>
                       <Link href={`/jobs/${j.id}`} className="text-gray-400 hover:text-primary"><Eye className="h-3.5 w-3.5" /></Link>
                       <div className="relative" ref={menuId === j.id ? menuRef : undefined}>
                         <button type="button" onClick={() => setMenuId(menuId === j.id ? null : j.id)}
@@ -173,49 +173,50 @@ export default function JobsListTable({
                     </div>
                   </td>
                   {showClient && (
-                    <td className="px-3 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3.5 whitespace-nowrap">
                       {j.client_name ? (
                         <div className="flex items-center gap-2">
-                          <ClientAvatar name={j.client_name} size="sm" className="!bg-amber-400 !text-amber-900" />
-                          <Link href={`/clients/${j.client_id}`} className="text-sm text-primary hover:underline">{j.client_name}</Link>
+                          <ClientAvatar name={j.client_name} size="sm" />
+                          <Link href={`/clients/${j.client_id}`} className="text-[13px] font-semibold text-primary hover:underline">{j.client_name}</Link>
                         </div>
                       ) : "—"}
                     </td>
                   )}
-                  <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{j.location || ""}</td>
-                  <td className="px-3 py-3 text-sm text-gray-800 whitespace-nowrap">
+                  <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{j.location || ""}</td>
+                  <td className="px-3 py-3.5 text-[13px] text-slate-800 font-medium whitespace-nowrap">
                     {j.candidate_count} - {j.number_of_positions ?? 1}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-primary text-white">
+                  <td className="px-3 py-3.5 whitespace-nowrap">
+                    <span className="status-pill bg-primary-50 text-primary-600 ring-primary-200">
+                      <span className="status-dot bg-primary-500" />
                       {JOB_STAGES[j.status] || j.status.replace("-", " ")}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{formatSalaryValue(j.salary_min)}</td>
-                  <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{formatSalaryValue(j.salary_max)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{formatSalaryValue(j.salary_min)}</td>
+                  <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{formatSalaryValue(j.salary_max)}</td>
+                  <td className="px-3 py-3.5 whitespace-nowrap">
                     {recruiter !== "—" ? (
                       <div className="flex items-center gap-1.5">
                         <UserAvatar name={recruiter} />
-                        <span className="text-sm text-primary truncate max-w-[80px]" title={recruiter}>{recruiter}</span>
+                        <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[110px]" title={recruiter}>{recruiter}</span>
                       </div>
                     ) : "—"}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3.5 whitespace-nowrap">
                     {recruiter !== "—" ? (
                       <div className="flex items-center gap-1.5">
                         <UserAvatar name={recruiter} />
-                        <span className="text-sm text-primary truncate max-w-[80px]" title={recruiter}>{recruiter}</span>
+                        <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[110px]" title={recruiter}>{recruiter}</span>
                       </div>
                     ) : "—"}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <div className="inline-flex items-center gap-1 border border-gray-200 rounded-md px-2 py-1 bg-white">
+                  <td className="px-3 py-3.5 whitespace-nowrap">
+                    <div className="inline-flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-1 bg-white shadow-sm hover:border-primary-300 transition-colors">
                       <Play className="h-3 w-3 text-primary fill-primary" />
                       <select
                         value={j.status}
                         onChange={(e) => updateStatus(j.id, e.target.value as JobStatus)}
-                        className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer pr-1"
+                        className="text-xs font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer pr-1"
                       >
                         {STATUS_OPTIONS.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
@@ -223,7 +224,7 @@ export default function JobsListTable({
                       </select>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDateShort(j.created_at)}</td>
+                  <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{formatDateShort(j.created_at)}</td>
                 </tr>
               );
             }) : (

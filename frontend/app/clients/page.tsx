@@ -426,7 +426,10 @@ function ClientsPageContent() {
     <PageWrapper flush>
       <div className="content-panel content-panel-flush">
         <div className="panel-header">
-          <h1 className="panel-title text-lg sm:text-xl font-bold text-[#1F574A]">Clients</h1>
+          <div>
+            <h1 className="panel-title">Clients</h1>
+            <p className="text-xs font-medium text-slate-500 mt-0.5">Manage companies, owners and hiring status</p>
+          </div>
           <HeaderActions
             addLabel="Client"
             onAddClick={canAddClients ? () => setCreateOpen(true) : undefined}
@@ -457,7 +460,7 @@ function ClientsPageContent() {
           <EmptyState title="No clients found" actionLabel="Create Client" onAction={() => setCreateOpen(true)} />
         ) : (
           <div className="p-4 sm:p-6">
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table
                   className="min-w-full border-collapse"
@@ -480,7 +483,7 @@ function ClientsPageContent() {
                     <col style={{ width: colWidths.actions }} />
                   </colgroup>
                   <thead>
-                    <tr className="bg-[#F1F4F8] border-b border-slate-200/80 text-[12px] font-semibold text-slate-500 uppercase tracking-wider select-none">
+                    <tr className="data-table-head">
                       <th className="relative pl-4 pr-2 py-3.5 text-left">
                         <input
                           type="checkbox"
@@ -653,10 +656,10 @@ function ClientsPageContent() {
                       <th className="w-10 px-2 py-3.5 text-center" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody className="bg-white">
                     {data.items.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-50/80 transition-colors text-[12px]">
-                        <td className="pl-4 pr-2 py-3">
+                      <tr key={c.id} className="data-table-row text-[13px]">
+                        <td className="pl-4 pr-2 py-3.5">
                           <input
                             type="checkbox"
                             className="rounded border-gray-300"
@@ -666,13 +669,15 @@ function ClientsPageContent() {
                         </td>
                         <td className="px-3 py-3 overflow-hidden text-ellipsis whitespace-nowrap">
                           <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
-                            <ClientAvatar name={c.company_name} size="sm" />
-                            <Link href={`/clients/${c.id}`} className="font-semibold text-slate-800 hover:text-primary truncate text-[12px]">
+                            <ClientAvatar name={c.company_name} size="md" />
+                            <Link href={`/clients/${c.id}`} className="font-bold text-slate-900 hover:text-primary truncate text-[13.5px]">
                               {c.company_name}
                             </Link>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{c.job_count}</td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <span className={cn("inline-flex min-w-[28px] justify-center rounded-md px-2 py-0.5 text-xs font-bold", c.job_count ? "bg-primary-50 text-primary-600" : "bg-slate-100 text-slate-400")}>{c.job_count}</span>
+                        </td>
                         <td className="px-3 py-3 text-slate-600 truncate whitespace-nowrap">{c.industry || "—"}</td>
                         <td className="px-3 py-3 text-slate-600 truncate whitespace-nowrap">{c.location || "—"}</td>
                         <td className="px-3 py-3 whitespace-nowrap">
@@ -682,7 +687,7 @@ function ClientsPageContent() {
                           {c.owner_name ? (
                             <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                               <UserAvatar name={c.owner_name} size="sm" />
-                              <span className="text-slate-700 font-medium whitespace-nowrap truncate">{c.owner_name}</span>
+                              <span className="text-slate-800 font-semibold whitespace-nowrap truncate">{c.owner_name}</span>
                             </div>
                           ) : (
                             <span className="text-slate-400 whitespace-nowrap">—</span>
@@ -692,20 +697,20 @@ function ClientsPageContent() {
                           {c.team && c.team.length > 0 ? (
                             <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                               <UserAvatar name={c.team[0].name} size="sm" />
-                              <span className="text-slate-700 font-medium whitespace-nowrap truncate">
+                              <span className="text-slate-800 font-semibold whitespace-nowrap truncate">
                                 {c.team.map((t) => t.name).join(", ")}
                               </span>
                             </div>
                           ) : c.team_member_name ? (
                             <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
                               <UserAvatar name={c.team_member_name} size="sm" />
-                              <span className="text-slate-700 font-medium whitespace-nowrap truncate">{c.team_member_name}</span>
+                              <span className="text-slate-800 font-semibold whitespace-nowrap truncate">{c.team_member_name}</span>
                             </div>
                           ) : (
                             <span className="text-slate-400 whitespace-nowrap">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-slate-500 whitespace-nowrap truncate">
+                        <td className="px-3 py-3 text-slate-500 font-medium tabular-nums whitespace-nowrap truncate">
                           {formatDateTimeBullet(c.created_at)}
                         </td>
                         <td className="px-3 py-3">
@@ -713,7 +718,7 @@ function ClientsPageContent() {
                             <button
                               type="button"
                               onClick={(e) => openMenu(c, e)}
-                              className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary-100"
                               aria-label="Actions"
                             >
                               <MoreVertical className="h-4 w-4" />

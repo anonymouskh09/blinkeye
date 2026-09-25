@@ -47,12 +47,12 @@ export default function CandidatesListTable({
   const someSelected = candidates.some((c) => selectedIds.includes(c.id));
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-card">
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-card">
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>
-            <tr className="bg-[#F1F4F8] border-b border-gray-100">
-              <th className="w-10 px-3 py-3 rounded-l-xl">
+            <tr className="data-table-head">
+              <th className="w-10 px-3 py-3">
                 <input
                   type="checkbox"
                   className="rounded border-gray-300"
@@ -63,27 +63,27 @@ export default function CandidatesListTable({
                   onChange={() => onToggleAll?.()}
                 />
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap min-w-[220px]">
-                <span className="inline-flex items-center gap-1">Candidate Name <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap min-w-[220px]">
+                <span className="inline-flex items-center gap-1">Candidate Name <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Candidate Reference <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Candidate Reference <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Candidate Location <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Candidate Location <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Current Position <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Current Position <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                <span className="inline-flex items-center gap-1">Current Company <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Current Company <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Notice Period</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Current Salary</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Expected Salary</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Candidate Owner</th>
-              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap rounded-r-xl">
-                <span className="inline-flex items-center gap-1">Candidate Created Date <ArrowUpDown className="h-3 w-3" /></span>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Notice Period</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Current Salary</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Expected Salary</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">Candidate Owner</th>
+              <th className="px-3 py-3 text-left whitespace-nowrap">
+                <span className="inline-flex items-center gap-1">Candidate Created Date <ArrowUpDown className="h-3 w-3 text-slate-400" /></span>
               </th>
             </tr>
           </thead>
@@ -92,11 +92,11 @@ export default function CandidatesListTable({
               <tr
                 key={c.id}
                 className={cn(
-                  "border-b border-gray-100 hover:bg-primary-50/40 transition-colors",
-                  idx % 2 === 1 ? "bg-primary-50/20" : "bg-white"
+                  "data-table-row",
+                  idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"
                 )}
               >
-                <td className="px-3 py-3">
+                <td className="px-3 py-3.5">
                   <input
                     type="checkbox"
                     className="rounded border-gray-300"
@@ -104,10 +104,10 @@ export default function CandidatesListTable({
                     onChange={() => onToggle?.(c.id)}
                   />
                 </td>
-                <td className="px-3 py-3 whitespace-nowrap">
+                <td className="px-3 py-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-2.5">
-                    <ClientAvatar name={c.name} size="sm" />
-                    <Link href={`/candidates/${c.id}`} className="text-primary hover:underline text-sm font-medium">
+                    <ClientAvatar name={c.name} size="md" />
+                    <Link href={`/candidates/${c.id}`} className="text-slate-900 hover:text-primary text-[13.5px] font-bold">
                       {c.name}
                     </Link>
                     {c.cv_file_path && (
@@ -140,26 +140,26 @@ export default function CandidatesListTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap font-mono text-xs">
-                  {candidateRef(c.id)}
+                <td className="px-3 py-3.5 whitespace-nowrap">
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{candidateRef(c.id)}</span>
                 </td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{c.location || ""}</td>
-                <td className="px-3 py-3 text-sm text-gray-800 whitespace-nowrap">{c.current_job_title || ""}</td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{c.current_company || ""}</td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{c.notice_period || ""}</td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">NA</td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{formatSalary(c.expected_salary)}</td>
-                <td className="px-3 py-3 whitespace-nowrap">
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{c.location || ""}</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-800 font-medium whitespace-nowrap">{c.current_job_title || ""}</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{c.current_company || ""}</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{c.notice_period || ""}</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">NA</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{formatSalary(c.expected_salary)}</td>
+                <td className="px-3 py-3.5 whitespace-nowrap">
                   {c.created_by_name ? (
                     <div className="flex items-center gap-1.5">
                       <UserAvatar name={c.created_by_name} />
-                      <span className="text-sm text-primary truncate max-w-[80px]" title={c.created_by_name}>
+                      <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[110px]" title={c.created_by_name}>
                         {c.created_by_name}
                       </span>
                     </div>
                   ) : "—"}
                 </td>
-                <td className="px-3 py-3 text-sm text-gray-600 whitespace-nowrap">{formatCreatedDate(c.created_at)}</td>
+                <td className="px-3 py-3.5 text-[13px] text-slate-600 whitespace-nowrap">{formatCreatedDate(c.created_at)}</td>
               </tr>
             )) : (
               <tr>
